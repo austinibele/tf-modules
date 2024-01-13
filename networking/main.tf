@@ -48,7 +48,7 @@ resource "aws_internet_gateway" "main" {
 
 resource "aws_eip" "nat_eip" {
     count    = local.nat_gw_count
-    vpc      = true
+    domain   = "vpc"
 }
 
 ### NAT Gateway - Only use one nat gateway for 2 subnets (stage environments)
