@@ -10,6 +10,11 @@ variable "env" {
     description = "Environment for the project"
 }
 
+variable "target_group_suffix" {
+  description = "A unique suffix to ensure the target group name is unique"
+  type        = string
+}
+
 # ALB vars
 variable "create_alb" {
     type = bool 

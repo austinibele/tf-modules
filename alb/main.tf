@@ -34,10 +34,10 @@ resource "aws_lb_listener" "https" {
 }
 
 resource "aws_lb_target_group" "alb_tg" {
-    count       = var.create_target_group == true ? 1 : 0
-    name        = "${var.project_id}-${var.env}-lb-tg"
-    port        = var.port 
-    protocol    = var.protocol 
-    target_type = var.target_type 
-    vpc_id      = var.vpc_id 
+  count       = var.create_target_group == true ? 1 : 0
+  name        = "${var.project_id}-${var.env}-${var.target_group_suffix}-tg"
+  port        = var.port
+  protocol    = var.protocol
+  target_type = var.target_type
+  vpc_id      = var.vpc_id
 }
