@@ -1,7 +1,7 @@
 ### Load Balancer
 resource "aws_lb" "alb" {
     count              = var.create_alb == true ? 1 : 0
-    name               = "${var.project_id}-${var.env}-lb"
+    name               = "${var.project_id}-${var.env}-${var.target_group_suffix}lb"
     internal           = var.internal 
     load_balancer_type = var.load_balancer_type 
     security_groups    = var.security_groups 
