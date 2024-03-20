@@ -12,7 +12,7 @@ resource "aws_lb" "alb" {
 }
 
 resource "aws_lb_listener" "http" {
-    count             = var.create_alb ? 1 : 0
+    count             = (var.create_alb && !var.disable_http)? 1 : 0
     load_balancer_arn = aws_lb.alb[0].arn
     port              = "80"
     protocol          = "HTTP"

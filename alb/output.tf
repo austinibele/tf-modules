@@ -9,7 +9,7 @@ output "lb" {
 }
 
 output "http_listener" {
-    value = var.create_alb ? aws_lb_listener.http[0] : null
+    value = (var.create_alb && !var.disable_http) ? aws_lb_listener.http[0] : null
     description = "The http listener info"
 }
 

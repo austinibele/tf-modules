@@ -22,6 +22,11 @@ variable "create_alb" {
     description = "Whether or not to create an ALB"
 }
 
+variable "disable_http" {
+    type = bool 
+    default = false 
+}
+
 variable "enable_https" {
     type = bool 
     default = false 
