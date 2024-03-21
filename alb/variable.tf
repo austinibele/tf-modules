@@ -22,6 +22,11 @@ variable "create_alb" {
     description = "Whether or not to create an ALB"
 }
 
+variable "certificate_arn" {
+    type = string 
+    default = ""
+}
+
 variable "disable_http" {
     type = bool 
     default = false 
