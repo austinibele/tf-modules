@@ -27,11 +27,6 @@ variable "certificate_arn" {
     default = ""
 }
 
-variable "disable_http" {
-    type = bool 
-    default = false 
-}
-
 variable "enable_https" {
     type = bool 
     default = false 

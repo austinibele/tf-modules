@@ -11,28 +11,17 @@ resource "aws_lb" "alb" {
     }
 }
 
-resource "aws_lb_listener" "http" {
-    count             = (var.create_alb && !var.disable_http)? 1 : 0
+resource "aws_lb_listener" "listener" {
+    count              = var.create_alb == true ? 1 : 0
     load_balancer_arn = aws_lb.alb[0].arn
-    port              = "80"
-    protocol          = "HTTP"
+    port              = var.enable_https == true ? "443" : "80"
+    protocol          = var.enable_https == true ? "HTTPS" : "HTTP"
     default_action {
         type             = "forward"
         target_group_arn = var.target_group 
     }
 }
 
-resource "aws_lb_listener" "https" {
-    count             = (var.create_alb && var.enable_https) ? 1 : 0
-    load_balancer_arn = aws_lb.alb[0].arn
-    certificate_arn   = var.certificate_arn 
-    port              = "443"
-    protocol          = "HTTPS"
-    default_action {
-        type             = "forward"
-        target_group_arn = var.target_group 
-    }
-}
 
 resource "aws_lb_target_group" "alb_tg" {
   count       = var.create_target_group == true ? 1 : 0
@@ -48,8 +37,8 @@ resource "aws_lb_target_group" "alb_tg" {
 # ----------------------------------------------------------
 
 resource "aws_lb_listener_rule" "health_check" {
-  count        = (var.enable_https && !var.disable_http) ? 2 : (var.enable_https || !var.disable_http) ? 1 : 0
-  listener_arn = (var.enable_https && !var.disable_http) ? [aws_lb_listener.https[0].arn, aws_lb_listener.http[0]] : (var.enable_https) ? [aws_lb_listener.https[0].arn] : [aws_lb_listener.http[0].arn]
+  count              = var.create_alb == true ? 1 : 0
+  listener_arn = aws_lb_listener.listener[0].arn
 
   priority = 1
 
@@ -73,8 +62,8 @@ resource "aws_lb_listener_rule" "health_check" {
 
 
 resource "aws_lb_listener_rule" "require_custom_header" {
-  count        = (var.enable_https && !var.disable_http) ? 2 : (var.enable_https || !var.disable_http) ? 1 : 0
-  listener_arn = (var.enable_https && !var.disable_http) ? [aws_lb_listener.https[0].arn, aws_lb_listener.http[0]] : (var.enable_https) ? [aws_lb_listener.https[0].arn] : [aws_lb_listener.http[0].arn]
+  count              = var.create_alb == true ? 1 : 0
+  listener_arn = aws_lb_listener.listener[0].arn
 
   priority = 10
 
