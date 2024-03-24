@@ -13,7 +13,7 @@ resource "aws_lb" "alb" {
 
 resource "aws_lb_listener" "listener" {
     count              = var.create_alb == true ? 1 : 0
-    load_balancer_arn = aws_lb.alb[0].arn
+    load_balancer_arn = aws_lb.alb.arn
     port              = var.enable_https == true ? "443" : "80"
     protocol          = var.enable_https == true ? "HTTPS" : "HTTP"
     default_action {
@@ -38,7 +38,7 @@ resource "aws_lb_target_group" "alb_tg" {
 
 resource "aws_lb_listener_rule" "health_check" {
   count              = var.create_alb == true ? 1 : 0
-  listener_arn = aws_lb_listener.listener[0].arn
+  listener_arn = aws_lb_listener.listener.arn
 
   priority = 1
 
@@ -63,7 +63,7 @@ resource "aws_lb_listener_rule" "health_check" {
 
 resource "aws_lb_listener_rule" "require_custom_header" {
   count              = var.create_alb == true ? 1 : 0
-  listener_arn = aws_lb_listener.listener[0].arn
+  listener_arn = aws_lb_listener.listener.arn
 
   priority = 10
 
