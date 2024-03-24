@@ -64,7 +64,7 @@ resource "aws_lb_listener_rule" "require_custom_header" {
 
   action {
     type             = "forward"
-    target_group_arn = var.target_group
+    target_group_arn = aws_lb_target_group.alb_tg.arn
   }
 
   condition {
