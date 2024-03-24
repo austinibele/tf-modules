@@ -8,14 +8,9 @@ output "lb" {
     description = "The load balancer info"
 }
 
-output "http_listener" {
-    value = (var.create_alb && !var.disable_http) ? aws_lb_listener.http[0] : null
-    description = "The http listener info"
-}
-
-output "https_listener" {
-    value = (var.create_alb && var.enable_https) ? aws_lb_listener.https[0]: null
-    description = "The https listner info"
+output "listener" {
+    value = var.create_alb ? aws_lb_listener.listener[0] : null
+    description = "The listener info"
 }
 
 output "dns_name" {
