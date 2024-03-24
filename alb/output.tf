@@ -4,21 +4,21 @@ output "tg" {
 }
 
 output "lb" {
-    value = var.create_alb ? aws_lb.alb : null
+    value = aws_lb.alb
     description = "The load balancer info"
 }
 
 output "listener" {
-    value = var.create_alb ? aws_lb_listener.listener : null
+    value = aws_lb_listener.listener
     description = "The listener info"
 }
 
 output "dns_name" {
-    value = var.create_alb ? aws_lb.alb.dns_name : null
+    value = aws_lb.alb.dns_name
     description = "The DNS name of the load balancer"
 }
 
 output "zone_id" {
-    value = var.create_alb ? aws_lb.alb.zone_id : null
+    value = aws_lb.alb.zone_id
     description = "The zone id of the load balancer"
 }
