@@ -1,6 +1,6 @@
 ### Load Balancer
 resource "aws_lb" "alb" {
-    name               = "${var.project_id}-${var.env}-${var.target_group_suffix}lb"
+    name               = "${var.project_id}-${var.env}-${var.target_group_suffix}-lb"
     internal           = var.internal 
     load_balancer_type = var.load_balancer_type 
     security_groups    = var.security_groups 
