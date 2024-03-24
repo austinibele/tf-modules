@@ -16,7 +16,7 @@ resource "aws_lb_listener" "listener" {
     protocol          = var.enable_https == true ? "HTTPS" : "HTTP"
     default_action {
         type             = "forward"
-        target_group_arn = var.target_group 
+        target_group_arn = aws_lb_target_group.alb_tg.arn
     }
 }
 
