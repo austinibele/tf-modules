@@ -16,12 +16,6 @@ variable "target_group_suffix" {
 }
 
 # ALB vars
-variable "create_alb" {
-    type = bool 
-    default = false 
-    description = "Whether or not to create an ALB"
-}
-
 variable "certificate_arn" {
     type = string 
     default = ""
