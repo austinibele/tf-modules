@@ -42,3 +42,51 @@ resource "aws_lb_target_group" "alb_tg" {
   target_type = var.target_type
   vpc_id      = var.vpc_id
 }
+
+# ----------------------------------------------------------
+# Listener rules
+# ----------------------------------------------------------
+
+resource "aws_lb_listener_rule" "health_check" {
+  count        = (var.enable_https && !var.disable_http) ? 2 : (var.enable_https || !var.disable_http) ? 1 : 0
+  listener_arn = (var.enable_https && !var.disable_http) ? [aws_lb_listener.https[0].arn, aws_lb_listener.http[0]] : (var.enable_https) ? [aws_lb_listener.https[0].arn] : [aws_lb_listener.http[0].arn]
+
+  priority = 1
+
+  action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "HEALTHY"
+      status_code  = "200"
+    }
+  }
+
+  condition {
+    query_string {
+      key   = "health"
+      value = "check"
+    }
+  }
+}
+
+
+resource "aws_lb_listener_rule" "require_custom_header" {
+  count        = (var.enable_https && !var.disable_http) ? 2 : (var.enable_https || !var.disable_http) ? 1 : 0
+  listener_arn = (var.enable_https && !var.disable_http) ? [aws_lb_listener.https[0].arn, aws_lb_listener.http[0]] : (var.enable_https) ? [aws_lb_listener.https[0].arn] : [aws_lb_listener.http[0].arn]
+
+  priority = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = var.target_group
+  }
+
+  condition {
+    http_header {
+      http_header_name = var.custom_header_name
+      values           = [var.custom_header_value]
+    }
+  }
+}

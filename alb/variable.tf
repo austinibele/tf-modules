@@ -89,3 +89,13 @@ variable "vpc_id" {
     type = string 
     default = ""
 }
+
+variable "custom_header_name" {
+    type = string 
+    default = "" 
+}
+
+variable "custom_header_value" {
+    type = string 
+    default = "" 
+}
