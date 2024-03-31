@@ -18,6 +18,7 @@ A few re-usable TF modules to speed up the dev process.
 
 **Publish tags:**
 ```sh
+git tag # lists tags
 git tag -a "v1.0.1" -m "First release of tf modules"
 git push origin master --follow-tags
 ```

@@ -27,3 +27,8 @@ variable "create_ecs_task_role" {
   type        = bool
   description = "Create an ECS task role"
 }
+
+variable "env" {
+  type        = string
+  description = "Environment"
+}
