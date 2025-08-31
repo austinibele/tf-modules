@@ -227,7 +227,7 @@ resource "aws_iam_role_policy" "events_run_task_policy" {
 }
 
 locals {
-    events_role_arn_effective = coalesce(var.events_role_arn, try(aws_iam_role.events_role[0].arn, null))
+    events_role_arn_effective = var.events_role_arn != null ? var.events_role_arn : (local.create_events_role ? aws_iam_role.events_role[0].arn : null)
 }
 
 resource "aws_cloudwatch_event_rule" "schedule" {
