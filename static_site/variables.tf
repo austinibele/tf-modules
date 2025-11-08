@@ -15,9 +15,8 @@ variable "tags" {
 }
 
 variable "bucket_name" {
-  description = "Optional explicit bucket name. Defaults to \"${namespace}-website\" when empty."
+  description = "Bucket name."
   type        = string
-  default     = ""
 }
 
 variable "aliases" {
