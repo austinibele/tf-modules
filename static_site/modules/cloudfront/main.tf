@@ -6,6 +6,56 @@ resource "aws_cloudfront_origin_access_control" "website_oac" {
   signing_protocol                  = "sigv4"
 }
 
+locals {
+  api_origin_enabled = var.api_origin_domain_name != ""
+  api_cache_policy_id = var.api_cache_policy_id != "" ? var.api_cache_policy_id : try(aws_cloudfront_cache_policy.api[0].id, null)
+  api_origin_request_policy_id = var.api_origin_request_policy_id != "" ? var.api_origin_request_policy_id : try(aws_cloudfront_origin_request_policy.api[0].id, null)
+}
+
+resource "aws_cloudfront_cache_policy" "api" {
+  count = local.api_origin_enabled && var.api_cache_policy_id == "" ? 1 : 0
+
+  name        = "api-cache-${replace(var.domain, ".", "-")}"
+  default_ttl = var.api_cache_ttl_seconds
+  max_ttl     = var.api_cache_ttl_seconds
+  min_ttl     = 0
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config {
+      cookie_behavior = "none"
+    }
+
+    headers_config {
+      header_behavior = "none"
+    }
+
+    query_strings_config {
+      query_string_behavior = "all"
+    }
+
+    enable_accept_encoding_brotli = true
+    enable_accept_encoding_gzip   = true
+  }
+}
+
+resource "aws_cloudfront_origin_request_policy" "api" {
+  count = local.api_origin_enabled && var.api_origin_request_policy_id == "" ? 1 : 0
+
+  name = "api-origin-request-${replace(var.domain, ".", "-")}"
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+
+  headers_config {
+    header_behavior = "none"
+  }
+
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+}
+
 resource "aws_cloudfront_response_headers_policy" "immutable_cache_headers" {
   name = "immutable-cache-headers"
 
@@ -87,6 +137,29 @@ resource "aws_cloudfront_distribution" "main" {
     origin_access_control_id = aws_cloudfront_origin_access_control.website_oac.id
   }
 
+  dynamic "origin" {
+    for_each = local.api_origin_enabled ? [1] : []
+    content {
+      domain_name = var.api_origin_domain_name
+      origin_id   = "api-origin"
+
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+
+      dynamic "origin_custom_header" {
+        for_each = var.api_origin_custom_header_value != "" ? [1] : []
+        content {
+          name  = var.api_origin_custom_header_name
+          value = var.api_origin_custom_header_value
+        }
+      }
+    }
+  }
+
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
@@ -101,6 +174,25 @@ resource "aws_cloudfront_distribution" "main" {
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = local.api_origin_enabled ? toset(var.api_path_patterns) : []
+    content {
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "api-origin"
+      allowed_methods            = var.api_allowed_methods
+      cached_methods             = var.api_cached_methods
+      viewer_protocol_policy     = "redirect-to-https"
+      compress                   = true
+      cache_policy_id            = local.api_cache_policy_id
+      origin_request_policy_id   = local.api_origin_request_policy_id
+
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      }
     }
   }
 

@@ -105,3 +105,57 @@ function handler(event) {
 EOT
 }
 
+variable "api_origin_domain_name" {
+  description = "Optional API origin domain (e.g., Lambda Function URL without https://)."
+  type        = string
+  default     = ""
+}
+
+variable "api_path_patterns" {
+  description = "Path patterns routed to the API origin."
+  type        = list(string)
+  default     = ["/api/*"]
+}
+
+variable "api_origin_custom_header_name" {
+  description = "Optional custom header name added to API origin requests."
+  type        = string
+  default     = "x-cf-origin"
+}
+
+variable "api_origin_custom_header_value" {
+  description = "Optional custom header value added to API origin requests."
+  type        = string
+  default     = ""
+}
+
+variable "api_allowed_methods" {
+  description = "Allowed HTTP methods for API behaviors."
+  type        = list(string)
+  default     = ["GET", "HEAD", "OPTIONS"]
+}
+
+variable "api_cached_methods" {
+  description = "Cached HTTP methods for API behaviors."
+  type        = list(string)
+  default     = ["GET", "HEAD"]
+}
+
+variable "api_cache_ttl_seconds" {
+  description = "Default/max TTL (seconds) for API cache policy when managed by the module."
+  type        = number
+  default     = 86400
+}
+
+variable "api_cache_policy_id" {
+  description = "Optional cache policy ID to use for API behaviors."
+  type        = string
+  default     = ""
+}
+
+variable "api_origin_request_policy_id" {
+  description = "Optional origin request policy ID to use for API behaviors."
+  type        = string
+  default     = ""
+}
+

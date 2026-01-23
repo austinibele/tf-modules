@@ -36,6 +36,16 @@ module "static_site_cloudfront" {
   bucket_arn          = module.static_site_bucket.bucket_arn
   acm_certificate_arn = module.static_site_certificate.certificate_arn
   tags                = var.tags
+
+  api_origin_domain_name         = var.api_origin_domain_name
+  api_path_patterns              = var.api_path_patterns
+  api_origin_custom_header_name  = var.api_origin_custom_header_name
+  api_origin_custom_header_value = var.api_origin_custom_header_value
+  api_allowed_methods            = var.api_allowed_methods
+  api_cached_methods             = var.api_cached_methods
+  api_cache_ttl_seconds          = var.api_cache_ttl_seconds
+  api_cache_policy_id            = var.api_cache_policy_id
+  api_origin_request_policy_id   = var.api_origin_request_policy_id
 }
 
 module "static_site_route53" {
