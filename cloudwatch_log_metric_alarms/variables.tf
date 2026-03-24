@@ -55,4 +55,9 @@ variable "include_id_in_names" {
   default = true
 }
 
+variable "alarm_description" {
+  type        = string
+  default     = ""
+  description = "CloudWatch alarm description (SNS payload). Empty uses log_group_name."
+}
 
