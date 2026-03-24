@@ -151,7 +151,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 
 module "log_alarms" {
   source         = "../cloudwatch_log_metric_alarms"
-  enable         = var.enable_log_alarms && var.env == "prod"
+  enable         = var.enable_log_alarms && contains(["prod", "live"], var.env)
   namespace      = var.namespace
   env            = var.env
   log_group_name = aws_cloudwatch_log_group.this.name

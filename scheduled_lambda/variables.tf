@@ -8,7 +8,7 @@ variable "namespace" {
 }
 
 variable "env" {
-  description = "Environment (dev, prod)"
+  description = "Environment (dev, prod, live)"
   type        = string
 }
 
