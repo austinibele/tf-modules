@@ -224,7 +224,7 @@ resource "aws_iam_role_policy" "events_run_task_policy" {
       {
         Effect   = "Allow",
         Action   = "ecs:RunTask",
-        Resource = aws_ecs_task_definition.manual_task.arn
+        Resource = "${replace(aws_ecs_task_definition.manual_task.arn, "/:[0-9]+$/", "")}:*"
       },
       {
         Effect = "Allow",
@@ -283,4 +283,8 @@ output "events_role_arn_effective" {
   description = "IAM role used by EventBridge to run the task (created or provided)"
 }
 
+output "eventbridge_rule_name" {
+  value       = var.schedule_enabled ? aws_cloudwatch_event_rule.schedule[0].name : null
+  description = "CloudWatch Events rule name for the scheduled task, if enabled"
+}
 
