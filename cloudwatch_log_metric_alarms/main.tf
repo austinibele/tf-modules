@@ -16,15 +16,15 @@ resource "aws_cloudwatch_log_metric_filter" "this" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "this" {
-  for_each                 = aws_cloudwatch_log_metric_filter.this
-  alarm_name               = each.value.metric_transformation[0].name
-  comparison_operator      = "GreaterThanOrEqualToThreshold"
-  evaluation_periods       = var.evaluation_periods
-  metric_name              = each.value.metric_transformation[0].name
-  namespace                = var.namespace
-  period                   = var.period
-  statistic                = var.statistic
-  threshold                = var.threshold
+  for_each            = aws_cloudwatch_log_metric_filter.this
+  alarm_name          = each.value.metric_transformation[0].name
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = var.evaluation_periods
+  metric_name         = each.value.metric_transformation[0].name
+  namespace           = var.namespace
+  period              = var.period
+  statistic           = var.statistic
+  threshold           = var.threshold
 
   alarm_actions     = var.alarm_actions
   alarm_description = var.alarm_description != "" ? var.alarm_description : var.log_group_name

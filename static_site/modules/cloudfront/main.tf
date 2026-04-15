@@ -7,8 +7,8 @@ resource "aws_cloudfront_origin_access_control" "website_oac" {
 }
 
 locals {
-  api_origin_enabled = var.api_origin_domain_name != ""
-  api_cache_policy_id = var.api_cache_policy_id != "" ? var.api_cache_policy_id : try(aws_cloudfront_cache_policy.api[0].id, null)
+  api_origin_enabled           = var.api_origin_domain_name != ""
+  api_cache_policy_id          = var.api_cache_policy_id != "" ? var.api_cache_policy_id : try(aws_cloudfront_cache_policy.api[0].id, null)
   api_origin_request_policy_id = var.api_origin_request_policy_id != "" ? var.api_origin_request_policy_id : try(aws_cloudfront_origin_request_policy.api[0].id, null)
 }
 
@@ -180,14 +180,14 @@ resource "aws_cloudfront_distribution" "main" {
   dynamic "ordered_cache_behavior" {
     for_each = local.api_origin_enabled ? toset(var.api_path_patterns) : []
     content {
-      path_pattern               = ordered_cache_behavior.value
-      target_origin_id           = "api-origin"
-      allowed_methods            = var.api_allowed_methods
-      cached_methods             = var.api_cached_methods
-      viewer_protocol_policy     = "redirect-to-https"
-      compress                   = true
-      cache_policy_id            = local.api_cache_policy_id
-      origin_request_policy_id   = local.api_origin_request_policy_id
+      path_pattern             = ordered_cache_behavior.value
+      target_origin_id         = "api-origin"
+      allowed_methods          = var.api_allowed_methods
+      cached_methods           = var.api_cached_methods
+      viewer_protocol_policy   = "redirect-to-https"
+      compress                 = true
+      cache_policy_id          = local.api_cache_policy_id
+      origin_request_policy_id = local.api_origin_request_policy_id
 
       function_association {
         event_type   = "viewer-request"
