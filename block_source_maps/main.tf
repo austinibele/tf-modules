@@ -1,6 +1,7 @@
 variable "name_prefix" {
-  type    = string
-  default = ""
+  type        = string
+  default     = ""
+  description = "Prefix for the CloudFront Function name; include namespace and environment so each env is unique in the AWS account."
 }
 
 resource "aws_cloudfront_function" "block_source_maps" {
