@@ -184,20 +184,6 @@ variable "launch_type" {
   description = "Launch type for scheduled runs"
 }
 
-variable "ignore_target_task_definition_arn_drift" {
-  type        = bool
-  default     = true
-  description = <<-EOT
-    When true, the EventBridge schedule target's ecs_target.task_definition_arn
-    is added to lifecycle.ignore_changes after initial creation. This lets an
-    out-of-band updater (e.g. CI's update-standalone-tasks.sh) keep the EB rule
-    pointed at the latest ACTIVE task-def revision without Terraform reverting
-    it to the (potentially deregistered) revision the module last registered.
-    Defaults to true because that's the safe choice whenever CI repoints the
-    rule with the latest image; set to false only if Terraform is the sole
-    writer of the EB target.
-  EOT
-}
 
 variable "tags" {
   type        = map(string)
@@ -291,9 +277,9 @@ resource "aws_cloudwatch_event_target" "schedule_target" {
   }
 
   lifecycle {
-    ignore_changes = var.ignore_target_task_definition_arn_drift ? [
+    ignore_changes = [
       ecs_target[0].task_definition_arn,
-    ] : []
+    ]
   }
 }
 
