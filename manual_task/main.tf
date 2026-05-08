@@ -72,7 +72,12 @@ variable "task_role_arn" {
 
 locals {
   command_to_run = coalesce(var.entrypoint_command, var.script_path)
-  env_from_map   = var.environment_map == null ? [] : [for k, v in var.environment_map : { name = k, value = tostring(v) }]
+  # Split the configured command into argv tokens, mirroring Docker exec form
+  # (`ENTRYPOINT ["bin", "arg1", "arg2"]`). First token becomes entryPoint, the
+  # rest become command. Avoids `/bin/sh -c "..."` wrapping so the process runs
+  # as PID 1 with no shell-parsing surprises.
+  command_argv = regexall("\\S+", local.command_to_run)
+  env_from_map = var.environment_map == null ? [] : [for k, v in var.environment_map : { name = k, value = tostring(v) }]
   environment_values = concat([
     {
       name  = "ENV"
@@ -91,11 +96,9 @@ locals {
       essential         = true,
       memory            = var.inputs.memory,
       memoryReservation = 256,
-      entryPoint        = ["/bin/sh", "-c"],
-      command = [
-        "${local.command_to_run} 2>&1"
-      ],
-      environment = local.environment_values,
+      entryPoint        = [local.command_argv[0]],
+      command           = slice(local.command_argv, 1, length(local.command_argv)),
+      environment       = local.environment_values,
       logConfiguration = {
         logDriver = "awslogs",
         options = {
@@ -179,6 +182,21 @@ variable "launch_type" {
   type        = string
   default     = "FARGATE"
   description = "Launch type for scheduled runs"
+}
+
+variable "ignore_target_task_definition_arn_drift" {
+  type        = bool
+  default     = true
+  description = <<-EOT
+    When true, the EventBridge schedule target's ecs_target.task_definition_arn
+    is added to lifecycle.ignore_changes after initial creation. This lets an
+    out-of-band updater (e.g. CI's update-standalone-tasks.sh) keep the EB rule
+    pointed at the latest ACTIVE task-def revision without Terraform reverting
+    it to the (potentially deregistered) revision the module last registered.
+    Defaults to true because that's the safe choice whenever CI repoints the
+    rule with the latest image; set to false only if Terraform is the sole
+    writer of the EB target.
+  EOT
 }
 
 variable "tags" {
@@ -270,6 +288,12 @@ resource "aws_cloudwatch_event_target" "schedule_target" {
       security_groups  = var.schedule_network.security_groups
       assign_public_ip = var.schedule_network.assign_public_ip
     }
+  }
+
+  lifecycle {
+    ignore_changes = var.ignore_target_task_definition_arn_drift ? [
+      ecs_target[0].task_definition_arn,
+    ] : []
   }
 }
 
