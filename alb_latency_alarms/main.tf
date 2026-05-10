@@ -6,9 +6,16 @@
 # minute while keeping mean-time-to-detect at ~4 min.
 
 resource "aws_cloudwatch_metric_alarm" "warn" {
-  count               = var.enable ? 1 : 0
-  alarm_name          = "${var.namespace}-${var.service_label}-alb-p95-latency-warn-${var.env}"
-  alarm_description   = "Warning: ${var.service_label} ALB p95 latency over ${var.warn_threshold_seconds}s for 4-of-5 minutes."
+  count      = var.enable ? 1 : 0
+  alarm_name = "${var.namespace}-${var.service_label}-alb-p95-latency-warn-${var.env}"
+  # JSON description carries alarm_category so slack-error-notifier routes it
+  # to SlackChannel.ALB_LATENCY_ALERTS instead of the default channel. Empty
+  # log_group_name skips log retrieval (no log filter on ALB metric alarms).
+  alarm_description = jsonencode({
+    log_group_name  = ""
+    ignore_patterns = []
+    alarm_category  = "alb_latency"
+  })
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 5
   datapoints_to_alarm = 4
@@ -31,9 +38,13 @@ resource "aws_cloudwatch_metric_alarm" "warn" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "critical" {
-  count               = var.enable ? 1 : 0
-  alarm_name          = "${var.namespace}-${var.service_label}-alb-p95-latency-critical-${var.env}"
-  alarm_description   = "Critical: ${var.service_label} ALB p95 latency over ${var.critical_threshold_seconds}s for 4-of-5 minutes."
+  count      = var.enable ? 1 : 0
+  alarm_name = "${var.namespace}-${var.service_label}-alb-p95-latency-critical-${var.env}"
+  alarm_description = jsonencode({
+    log_group_name  = ""
+    ignore_patterns = []
+    alarm_category  = "alb_latency"
+  })
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 5
   datapoints_to_alarm = 4
