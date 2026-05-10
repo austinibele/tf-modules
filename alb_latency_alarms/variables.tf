@@ -1,0 +1,48 @@
+variable "enable" {
+  description = "Toggle alarm creation. Set false to disable without removing the module call."
+  type        = bool
+  default     = true
+}
+
+variable "namespace" {
+  type = string
+}
+
+variable "env" {
+  type = string
+}
+
+variable "service_label" {
+  description = "Short label used in the alarm name and description, e.g. 'crm-backend'."
+  type        = string
+}
+
+variable "target_group_arn_suffix" {
+  description = "ARN suffix of the ALB target group (e.g. 'targetgroup/<name>/<id>'). Use aws_lb_target_group.<name>.arn_suffix."
+  type        = string
+}
+
+variable "load_balancer_arn_suffix" {
+  description = "ARN suffix of the ALB (e.g. 'app/<name>/<id>'). Use aws_lb.<name>.arn_suffix."
+  type        = string
+}
+
+variable "warn_threshold_seconds" {
+  description = "p95 latency threshold (seconds) for the warn alarm."
+  type        = number
+}
+
+variable "critical_threshold_seconds" {
+  description = "p95 latency threshold (seconds) for the critical alarm."
+  type        = number
+}
+
+variable "alarm_topic_arn" {
+  description = "SNS topic ARN that alarm notifications publish to."
+  type        = string
+}
+
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
