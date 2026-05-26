@@ -133,6 +133,11 @@ output "task_definition_arn" {
   description = "ARN of the created task definition"
 }
 
+output "task_definition_family" {
+  value       = aws_ecs_task_definition.manual_task.family
+  description = "Family name of the created task definition (resolves to latest ACTIVE revision)"
+}
+
 
 # -----------------------------------------------------------------------------
 # Optional EventBridge schedule to run the manual task on a cron
@@ -266,7 +271,7 @@ resource "aws_cloudwatch_event_target" "schedule_target" {
 
   ecs_target {
     task_count          = var.schedule_task_count
-    task_definition_arn = aws_ecs_task_definition.manual_task.arn
+    task_definition_arn = aws_ecs_task_definition.manual_task.family
     launch_type         = var.launch_type
 
     network_configuration {
@@ -274,12 +279,6 @@ resource "aws_cloudwatch_event_target" "schedule_target" {
       security_groups  = var.schedule_network.security_groups
       assign_public_ip = var.schedule_network.assign_public_ip
     }
-  }
-
-  lifecycle {
-    ignore_changes = [
-      ecs_target[0].task_definition_arn,
-    ]
   }
 }
 
