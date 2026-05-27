@@ -271,7 +271,7 @@ resource "aws_cloudwatch_event_target" "schedule_target" {
 
   ecs_target {
     task_count          = var.schedule_task_count
-    task_definition_arn = aws_ecs_task_definition.manual_task.family
+    task_definition_arn = replace(aws_ecs_task_definition.manual_task.arn, "/:[0-9]+$/", "")
     launch_type         = var.launch_type
 
     network_configuration {
