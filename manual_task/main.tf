@@ -177,8 +177,10 @@ variable "schedule_network" {
   description = "Network configuration for the scheduled run (awsvpc)"
 }
 
-variable "events_role_arn" {
-  type        = string
+variable "events_role" {
+  type = object({
+    arn = string
+  })
   default     = null
   description = "Pre-existing IAM role for EventBridge to run ECS tasks; if null, module creates one"
 }
@@ -197,7 +199,7 @@ variable "tags" {
 }
 
 locals {
-  create_events_role = var.schedule_enabled && var.events_role_arn == null
+  create_events_role = var.schedule_enabled && var.events_role == null
 }
 
 resource "aws_iam_role" "events_role" {
@@ -248,7 +250,7 @@ resource "aws_iam_role_policy" "events_run_task_policy" {
 }
 
 locals {
-  events_role_arn_effective = var.events_role_arn != null ? var.events_role_arn : (local.create_events_role ? aws_iam_role.events_role[0].arn : null)
+  events_role_arn_effective = var.events_role != null ? var.events_role.arn : try(aws_iam_role.events_role[0].arn, null)
 }
 
 resource "aws_cloudwatch_event_rule" "schedule" {
@@ -296,4 +298,3 @@ output "eventbridge_rule_name" {
   value       = var.schedule_enabled ? aws_cloudwatch_event_rule.schedule[0].name : null
   description = "CloudWatch Events rule name for the scheduled task, if enabled"
 }
-
