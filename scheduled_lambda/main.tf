@@ -135,8 +135,12 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   period              = 300
   statistic           = "Sum"
   threshold           = 0
-  alarm_description   = "Lambda errors for ${local.function_name}"
-  alarm_actions       = var.alarm_actions
+  alarm_description = jsonencode({
+    log_group_name  = aws_cloudwatch_log_group.this.name
+    ignore_patterns = []
+    alarm_category  = "scheduled_lambda"
+  })
+  alarm_actions = var.alarm_actions
 
   dimensions = {
     FunctionName = aws_lambda_function.this.function_name
@@ -158,4 +162,9 @@ module "log_alarms" {
   name_prefix    = "${local.function_name}-log-error-count"
   alarm_actions  = var.alarm_actions
   filters        = var.log_alarm_filters
+  alarm_description = jsonencode({
+    log_group_name  = aws_cloudwatch_log_group.this.name
+    ignore_patterns = []
+    alarm_category  = "scheduled_lambda"
+  })
 }

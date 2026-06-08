@@ -107,7 +107,7 @@ resource "aws_cloudwatch_metric_alarm" "errors" {
   alarm_description = jsonencode({
     log_group_name  = aws_cloudwatch_log_group.dispatcher.name
     ignore_patterns = []
-    alarm_category  = "cron_status"
+    alarm_category  = "ecs_dispatcher"
   })
 
   dimensions = {
@@ -130,7 +130,7 @@ resource "aws_cloudwatch_metric_alarm" "throttles" {
   alarm_description = jsonencode({
     log_group_name  = aws_cloudwatch_log_group.dispatcher.name
     ignore_patterns = []
-    alarm_category  = "cron_status"
+    alarm_category  = "ecs_dispatcher"
   })
 
   dimensions = {
@@ -150,5 +150,9 @@ module "log_alarms" {
   alarm_actions       = var.alarm_actions
   filters             = var.log_alarm_filters
   include_id_in_names = true
-  alarm_description   = var.log_alarm_description
+  alarm_description = var.log_alarm_description != "" ? var.log_alarm_description : jsonencode({
+    log_group_name  = aws_cloudwatch_log_group.dispatcher.name
+    ignore_patterns = []
+    alarm_category  = "ecs_dispatcher"
+  })
 }
