@@ -55,6 +55,18 @@ variable "datapoints_to_alarm" {
   default     = 4
 }
 
+variable "warn_datapoints_to_alarm" {
+  description = "Number of breaching datapoints required for the warn alarm. Defaults to datapoints_to_alarm."
+  type        = number
+  default     = null
+}
+
+variable "critical_datapoints_to_alarm" {
+  description = "Number of breaching datapoints required for the critical alarm. Defaults to datapoints_to_alarm."
+  type        = number
+  default     = null
+}
+
 variable "alarm_topic_arn" {
   description = "SNS topic ARN that alarm notifications publish to."
   type        = string

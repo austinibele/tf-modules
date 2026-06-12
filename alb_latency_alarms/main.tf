@@ -18,7 +18,7 @@ resource "aws_cloudwatch_metric_alarm" "warn" {
   })
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = var.evaluation_periods
-  datapoints_to_alarm = var.datapoints_to_alarm
+  datapoints_to_alarm = coalesce(var.warn_datapoints_to_alarm, var.datapoints_to_alarm)
   threshold           = var.warn_threshold_seconds
   metric_name         = "TargetResponseTime"
   namespace           = "AWS/ApplicationELB"
@@ -47,7 +47,7 @@ resource "aws_cloudwatch_metric_alarm" "critical" {
   })
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = var.evaluation_periods
-  datapoints_to_alarm = var.datapoints_to_alarm
+  datapoints_to_alarm = coalesce(var.critical_datapoints_to_alarm, var.datapoints_to_alarm)
   threshold           = var.critical_threshold_seconds
   metric_name         = "TargetResponseTime"
   namespace           = "AWS/ApplicationELB"
