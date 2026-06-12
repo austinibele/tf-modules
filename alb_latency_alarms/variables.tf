@@ -37,6 +37,24 @@ variable "critical_threshold_seconds" {
   type        = number
 }
 
+variable "period" {
+  description = "CloudWatch metric evaluation period, in seconds."
+  type        = number
+  default     = 60
+}
+
+variable "evaluation_periods" {
+  description = "Number of periods to evaluate."
+  type        = number
+  default     = 5
+}
+
+variable "datapoints_to_alarm" {
+  description = "Number of breaching datapoints required to enter ALARM."
+  type        = number
+  default     = 4
+}
+
 variable "alarm_topic_arn" {
   description = "SNS topic ARN that alarm notifications publish to."
   type        = string
