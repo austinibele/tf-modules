@@ -25,6 +25,7 @@ resource "aws_cloudwatch_metric_alarm" "this" {
   period              = var.period
   statistic           = var.statistic
   threshold           = var.threshold
+  treat_missing_data  = var.treat_missing_data
 
   alarm_actions     = var.alarm_actions
   alarm_description = var.alarm_description != "" ? var.alarm_description : var.log_group_name

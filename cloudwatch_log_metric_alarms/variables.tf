@@ -61,3 +61,9 @@ variable "alarm_description" {
   description = "CloudWatch alarm description (SNS payload). Empty uses log_group_name."
 }
 
+variable "treat_missing_data" {
+  type        = string
+  default     = "notBreaching"
+  description = "How the alarm treats missing datapoints (notBreaching avoids flap when no matching logs)."
+}
+
