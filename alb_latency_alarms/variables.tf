@@ -32,6 +32,12 @@ variable "warn_threshold_seconds" {
   type        = number
 }
 
+variable "warn_request_count_gate" {
+  description = "When set, the warn alarm only considers p95 latency in periods where the target group RequestCount sum is at least this value. Null keeps the plain p95 alarm."
+  type        = number
+  default     = null
+}
+
 variable "critical_threshold_seconds" {
   description = "p95 latency threshold (seconds) for the critical alarm."
   type        = number

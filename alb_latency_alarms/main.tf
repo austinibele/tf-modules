@@ -4,6 +4,10 @@
 #
 # Datapoints-to-Alarm defaults to 4 of 5 minutes over threshold. Callers with
 # low traffic can raise the period/evaluation window to reduce noise.
+#
+# Optional warn_request_count_gate: when set, the warn alarm uses metric math so p95
+# latency is only evaluated in periods where RequestCount sum meets the gate; otherwise
+# the gated expression returns 0 (not breaching). Critical remains a plain p95 alarm.
 
 resource "aws_cloudwatch_metric_alarm" "warn" {
   count      = var.enable ? 1 : 0
@@ -20,15 +24,65 @@ resource "aws_cloudwatch_metric_alarm" "warn" {
   evaluation_periods  = var.evaluation_periods
   datapoints_to_alarm = coalesce(var.warn_datapoints_to_alarm, var.datapoints_to_alarm)
   threshold           = var.warn_threshold_seconds
-  metric_name         = "TargetResponseTime"
-  namespace           = "AWS/ApplicationELB"
-  period              = var.period
-  extended_statistic  = "p95"
+  metric_name         = var.warn_request_count_gate == null ? "TargetResponseTime" : null
+  namespace           = var.warn_request_count_gate == null ? "AWS/ApplicationELB" : null
+  period              = var.warn_request_count_gate == null ? var.period : null
+  extended_statistic  = var.warn_request_count_gate == null ? "p95" : null
   treat_missing_data  = "notBreaching"
 
-  dimensions = {
+  dimensions = var.warn_request_count_gate == null ? {
     TargetGroup  = var.target_group_arn_suffix
     LoadBalancer = var.load_balancer_arn_suffix
+  } : null
+
+  dynamic "metric_query" {
+    for_each = var.warn_request_count_gate == null ? [] : [1]
+    content {
+      id          = "latency"
+      return_data = false
+
+      metric {
+        metric_name = "TargetResponseTime"
+        namespace   = "AWS/ApplicationELB"
+        period      = var.period
+        stat        = "p95"
+
+        dimensions = {
+          TargetGroup  = var.target_group_arn_suffix
+          LoadBalancer = var.load_balancer_arn_suffix
+        }
+      }
+    }
+  }
+
+  dynamic "metric_query" {
+    for_each = var.warn_request_count_gate == null ? [] : [1]
+    content {
+      id          = "requests"
+      return_data = false
+
+      metric {
+        metric_name = "RequestCount"
+        namespace   = "AWS/ApplicationELB"
+        period      = var.period
+        stat        = "Sum"
+
+        dimensions = {
+          TargetGroup  = var.target_group_arn_suffix
+          LoadBalancer = var.load_balancer_arn_suffix
+        }
+      }
+    }
+  }
+
+  dynamic "metric_query" {
+    for_each = var.warn_request_count_gate == null ? [] : [1]
+    content {
+      id          = "gated"
+      expression  = "IF(requests >= ${var.warn_request_count_gate}, latency, 0)"
+      label       = "p95 latency when RequestCount >= ${var.warn_request_count_gate}"
+      return_data = true
+    }
   }
 
   alarm_actions = [var.alarm_topic_arn]
