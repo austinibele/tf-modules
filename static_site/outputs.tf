@@ -38,6 +38,11 @@ output "distribution_hosted_zone_id" {
   value       = module.static_site_cloudfront.distribution_hosted_zone_id
 }
 
+output "web_acl_id" {
+  description = "Web ACL associated with the CloudFront distribution, if any."
+  value       = module.static_site_cloudfront.web_acl_id
+}
+
 output "certificate_arn" {
   description = "ARN of the ACM certificate used by CloudFront."
   value       = module.static_site_certificate.certificate_arn

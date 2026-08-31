@@ -65,6 +65,12 @@ variable "wait_for_deployment" {
   default     = false
 }
 
+variable "web_acl_id" {
+  description = "Optional WAFv2 web ACL ARN (CLOUDFRONT scope). Null leaves the distribution unprotected."
+  type        = string
+  default     = null
+}
+
 variable "redirect_www_to_apex_function_code" {
   description = "CloudFront function code for redirecting www subdomain traffic."
   type        = string

@@ -36,6 +36,7 @@ module "static_site_cloudfront" {
   bucket_arn          = module.static_site_bucket.bucket_arn
   acm_certificate_arn = module.static_site_certificate.certificate_arn
   tags                = var.tags
+  web_acl_id          = var.web_acl_id
 
   api_origin_domain_name         = var.api_origin_domain_name
   api_path_patterns              = var.api_path_patterns

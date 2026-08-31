@@ -130,6 +130,7 @@ resource "aws_cloudfront_distribution" "main" {
   price_class         = var.price_class
   wait_for_deployment = var.wait_for_deployment
   aliases             = var.aliases
+  web_acl_id          = var.web_acl_id
 
   origin {
     domain_name              = var.bucket_domain_name

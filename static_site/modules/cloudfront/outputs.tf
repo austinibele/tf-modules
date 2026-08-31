@@ -18,6 +18,11 @@ output "distribution_hosted_zone_id" {
   value       = aws_cloudfront_distribution.main.hosted_zone_id
 }
 
+output "web_acl_id" {
+  description = "Web ACL associated with the distribution, if any."
+  value       = aws_cloudfront_distribution.main.web_acl_id
+}
+
 output "function_arn" {
   description = "ARN of the CloudFront function handling redirects."
   value       = aws_cloudfront_function.redirect_www_to_apex.arn

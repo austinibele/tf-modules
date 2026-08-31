@@ -102,3 +102,9 @@ variable "api_origin_request_policy_id" {
   type        = string
   default     = ""
 }
+
+variable "web_acl_id" {
+  description = "Optional WAFv2 web ACL ARN (CLOUDFRONT scope). Null leaves the distribution unprotected."
+  type        = string
+  default     = null
+}
