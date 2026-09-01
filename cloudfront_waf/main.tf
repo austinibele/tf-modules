@@ -30,7 +30,9 @@ resource "aws_wafv2_web_acl" "this" {
   }
 
   challenge_config {
-    immunity_time_in_seconds = var.challenge_immunity_time_seconds
+    immunity_time_property {
+      immunity_time = var.challenge_immunity_time_seconds
+    }
   }
 
   token_domains = length(var.token_domains) > 0 ? var.token_domains : null
