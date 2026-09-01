@@ -357,7 +357,7 @@ variable "log_group_name" {
   default     = null
 
   validation {
-    condition     = var.log_group_name == null || startswith(coalesce(var.log_group_name, ""), "aws-waf-logs-")
+    condition     = var.log_group_name == null || try(startswith(var.log_group_name, "aws-waf-logs-"), false)
     error_message = "log_group_name must start with aws-waf-logs-."
   }
 }
