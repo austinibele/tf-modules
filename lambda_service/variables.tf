@@ -161,13 +161,19 @@ variable "schedule_timezone" {
 # -----------------------------------------------------------------------------
 
 variable "http_api" {
-  description = "Attach the function to an HTTP API v2 (AWS_IAM). Null creates no integration or routes."
+  description = "Attach the function to an HTTP API v2. Null creates no integration or routes. authorization_type defaults to AWS_IAM; set NONE for unauthenticated routes."
   type = object({
-    api_id        = string
-    execution_arn = string
-    route_keys    = optional(list(string))
+    api_id             = string
+    execution_arn      = string
+    route_keys         = optional(list(string))
+    authorization_type = optional(string, "AWS_IAM")
   })
   default = null
+
+  validation {
+    condition     = var.http_api == null || contains(["AWS_IAM", "NONE"], var.http_api.authorization_type)
+    error_message = "http_api.authorization_type must be AWS_IAM or NONE."
+  }
 }
 
 # -----------------------------------------------------------------------------

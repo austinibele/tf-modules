@@ -27,7 +27,8 @@ module "slack_alert" {
   http_api = {
     api_id        = aws_apigatewayv2_api.lambda_api.id
     execution_arn = aws_apigatewayv2_api.lambda_api.execution_arn
-    # defaults: ["ANY /slack-alert-notifier", "ANY /slack-alert-notifier/{proxy+}"]
+    # defaults: route_keys ["ANY /slack-alert-notifier", "ANY /slack-alert-notifier/{proxy+}"], authorization_type AWS_IAM
+    # authorization_type = "NONE"  # unauthenticated public routes
   }
 
   sqs_trigger = {
@@ -126,7 +127,7 @@ module "ads_clustering" {
 | `managed_policy_arns` | `[]` | |
 | `schedule_expression` | `null` | Null = no schedule |
 | `schedule_timezone` | `null` | Set → EventBridge Scheduler |
-| `http_api` | `null` | `{ api_id, execution_arn, route_keys? }` |
+| `http_api` | `null` | `{ api_id, execution_arn, route_keys?, authorization_type? }` (`AWS_IAM` default; `NONE` allowed) |
 | `sqs_trigger` | `null` | Queue + DLQ + ESM (`ReportBatchItemFailures`) |
 | `enable_async_dlq` | `false` | Async `dead_letter_config` |
 | `log_retention_days` | `14` | |

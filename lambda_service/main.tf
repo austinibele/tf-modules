@@ -363,7 +363,7 @@ resource "aws_iam_role_policy" "scheduler" {
 }
 
 # -----------------------------------------------------------------------------
-# HTTP API v2 (AWS_IAM)
+# HTTP API v2 (authorization_type defaults to AWS_IAM)
 # -----------------------------------------------------------------------------
 
 resource "aws_apigatewayv2_integration" "this" {
@@ -380,7 +380,7 @@ resource "aws_apigatewayv2_route" "this" {
 
   api_id             = var.http_api.api_id
   route_key          = each.value
-  authorization_type = "AWS_IAM"
+  authorization_type = var.http_api.authorization_type
   target             = "integrations/${aws_apigatewayv2_integration.this[0].id}"
 }
 
