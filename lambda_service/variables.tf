@@ -171,7 +171,7 @@ variable "http_api" {
   default = null
 
   validation {
-    condition     = var.http_api == null || contains(["AWS_IAM", "NONE"], var.http_api.authorization_type)
+    condition     = var.http_api == null || try(contains(["AWS_IAM", "NONE"], var.http_api.authorization_type), false)
     error_message = "http_api.authorization_type must be AWS_IAM or NONE."
   }
 }
