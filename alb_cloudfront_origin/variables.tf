@@ -37,6 +37,17 @@ variable "origin_read_timeout" {
   default     = 30
 }
 
+variable "http_version" {
+  description = "Viewer HTTP versions. Use \"http2\" for long-lived streams (SSE): an established QUIC connection that dies surfaces as ERR_QUIC_PROTOCOL_ERROR with no fallback."
+  type        = string
+  default     = "http2and3"
+
+  validation {
+    condition     = contains(["http1.1", "http2", "http2and3", "http3"], var.http_version)
+    error_message = "http_version must be one of http1.1, http2, http2and3, http3."
+  }
+}
+
 variable "tags" {
   description = "Tags applied to the distribution."
   type        = map(string)
