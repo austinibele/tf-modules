@@ -71,6 +71,36 @@ variable "web_acl_id" {
   default     = null
 }
 
+variable "resource_name_prefix" {
+  description = "Optional unique prefix for CloudFront policy and function names."
+  type        = string
+  default     = ""
+}
+
+variable "directory_routing_function_code" {
+  description = "Optional viewer-request function code for known directory routes."
+  type        = string
+  default     = ""
+}
+
+variable "strict_error_responses" {
+  description = "Whether to return a true 404 page for S3 403/404 misses."
+  type        = bool
+  default     = false
+}
+
+variable "security_headers_policy" {
+  description = "Whether to attach restrictive static-site response headers."
+  type        = bool
+  default     = false
+}
+
+variable "security_headers_content_security_policy" {
+  description = "Content-Security-Policy value for the opt-in static response headers."
+  type        = string
+  default     = "default-src 'self'; base-uri 'none'; connect-src 'none'; form-action 'none'; frame-ancestors 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+}
+
 variable "redirect_www_to_apex_function_code" {
   description = "CloudFront function code for redirecting www subdomain traffic."
   type        = string
@@ -164,4 +194,3 @@ variable "api_origin_request_policy_id" {
   type        = string
   default     = ""
 }
-

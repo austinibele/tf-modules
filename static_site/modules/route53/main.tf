@@ -1,6 +1,12 @@
 resource "aws_route53_zone" "primary" {
+  count = var.existing_zone_id == "" ? 1 : 0
+
   name    = var.domain
   comment = "Public hosted zone for ${var.domain}"
+}
+
+locals {
+  zone_id = var.existing_zone_id != "" ? var.existing_zone_id : aws_route53_zone.primary[0].zone_id
 }
 
 resource "aws_route53_record" "cert_validation" {
@@ -17,7 +23,7 @@ resource "aws_route53_record" "cert_validation" {
   records         = [each.value.value]
   ttl             = 60
   type            = each.value.type
-  zone_id         = aws_route53_zone.primary.zone_id
+  zone_id         = local.zone_id
 }
 
 resource "aws_acm_certificate_validation" "website" {
@@ -27,7 +33,7 @@ resource "aws_acm_certificate_validation" "website" {
 }
 
 resource "aws_route53_record" "primary_root" {
-  zone_id = aws_route53_zone.primary.zone_id
+  zone_id = local.zone_id
   name    = var.domain
   type    = "A"
 
@@ -39,9 +45,46 @@ resource "aws_route53_record" "primary_root" {
 }
 
 resource "aws_route53_record" "primary_www" {
-  zone_id = aws_route53_zone.primary.zone_id
+  for_each = var.create_www_alias ? toset(["www"]) : toset([])
+  zone_id  = local.zone_id
+  name     = "www.${var.domain}"
+  type     = "A"
+
+  alias {
+    name                   = var.distribution_domain_name
+    zone_id                = var.distribution_hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+moved {
+  from = aws_route53_zone.primary
+  to   = aws_route53_zone.primary[0]
+}
+
+moved {
+  from = aws_route53_record.primary_www
+  to   = aws_route53_record.primary_www["www"]
+}
+
+resource "aws_route53_record" "primary_root_ipv6" {
+  count   = var.create_ipv6_alias_records ? 1 : 0
+  zone_id = local.zone_id
+  name    = var.domain
+  type    = "AAAA"
+
+  alias {
+    name                   = var.distribution_domain_name
+    zone_id                = var.distribution_hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "primary_www_ipv6" {
+  count   = var.create_www_alias && var.create_ipv6_alias_records ? 1 : 0
+  zone_id = local.zone_id
   name    = "www.${var.domain}"
-  type    = "A"
+  type    = "AAAA"
 
   alias {
     name                   = var.distribution_domain_name
@@ -53,10 +96,9 @@ resource "aws_route53_record" "primary_www" {
 resource "aws_route53_record" "additional" {
   for_each = var.additional_records
 
-  zone_id = aws_route53_zone.primary.zone_id
+  zone_id = local.zone_id
   name    = each.value.name
   type    = each.value.type
   ttl     = each.value.ttl
   records = each.value.records
 }
-

@@ -26,6 +26,72 @@ variable "aliases" {
   default     = []
 }
 
+variable "existing_zone_id" {
+  description = "Existing public Route 53 zone to use. Empty creates a dedicated zone for backward compatibility."
+  type        = string
+  default     = ""
+}
+
+variable "create_www_alias" {
+  description = "Whether to create a www alias record."
+  type        = bool
+  default     = true
+}
+
+variable "create_ipv6_alias_records" {
+  description = "Whether to create AAAA aliases alongside A aliases."
+  type        = bool
+  default     = false
+}
+
+variable "enable_website_configuration" {
+  description = "Whether to configure the S3 website endpoint."
+  type        = bool
+  default     = true
+}
+
+variable "object_ownership" {
+  description = "S3 object ownership mode."
+  type        = string
+  default     = "BucketOwnerPreferred"
+}
+
+variable "enable_server_side_encryption" {
+  description = "Whether to enable default S3-managed server-side encryption."
+  type        = bool
+  default     = false
+}
+
+variable "resource_name_prefix" {
+  description = "Optional unique prefix for CloudFront policy and function names."
+  type        = string
+  default     = ""
+}
+
+variable "directory_routing_function_code" {
+  description = "Optional viewer-request function code used for directory routing. Empty preserves the legacy www redirect function."
+  type        = string
+  default     = ""
+}
+
+variable "strict_error_responses" {
+  description = "Whether missing S3 objects return a 404 page instead of SPA HTML success responses."
+  type        = bool
+  default     = false
+}
+
+variable "security_headers_policy" {
+  description = "Whether to attach restrictive static-site response headers."
+  type        = bool
+  default     = false
+}
+
+variable "security_headers_content_security_policy" {
+  description = "Content-Security-Policy value for the opt-in static response headers."
+  type        = string
+  default     = "default-src 'self'; base-uri 'none'; connect-src 'none'; form-action 'none'; frame-ancestors 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+}
+
 variable "route53_additional_records" {
   description = "Additional Route 53 records to create beyond the CloudFront aliases."
   type = map(object({

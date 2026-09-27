@@ -3,6 +3,24 @@ variable "domain" {
   type        = string
 }
 
+variable "existing_zone_id" {
+  description = "Existing public Route 53 zone to use. Empty creates a zone for backward compatibility."
+  type        = string
+  default     = ""
+}
+
+variable "create_www_alias" {
+  description = "Whether to create the legacy www alias record."
+  type        = bool
+  default     = true
+}
+
+variable "create_ipv6_alias_records" {
+  description = "Whether to create AAAA aliases alongside A aliases."
+  type        = bool
+  default     = false
+}
+
 variable "distribution_domain_name" {
   description = "CloudFront distribution domain name for alias records."
   type        = string
@@ -38,4 +56,3 @@ variable "additional_records" {
   }))
   default = {}
 }
-

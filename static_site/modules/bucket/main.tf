@@ -17,7 +17,7 @@ resource "aws_s3_bucket_ownership_controls" "website" {
   bucket = aws_s3_bucket.website.id
 
   rule {
-    object_ownership = "BucketOwnerPreferred"
+    object_ownership = var.object_ownership
   }
 }
 
@@ -29,7 +29,21 @@ resource "aws_s3_bucket_versioning" "website" {
   }
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "website" {
+  count = var.enable_server_side_encryption ? 1 : 0
+
+  bucket = aws_s3_bucket.website.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 resource "aws_s3_bucket_website_configuration" "website" {
+  count = var.enable_website_configuration ? 1 : 0
+
   bucket = aws_s3_bucket.website.id
 
   index_document {
@@ -41,3 +55,7 @@ resource "aws_s3_bucket_website_configuration" "website" {
   }
 }
 
+moved {
+  from = aws_s3_bucket_website_configuration.website
+  to   = aws_s3_bucket_website_configuration.website[0]
+}

@@ -10,6 +10,8 @@ locals {
   api_origin_enabled           = var.api_origin_domain_name != ""
   api_cache_policy_id          = var.api_cache_policy_id != "" ? var.api_cache_policy_id : try(aws_cloudfront_cache_policy.api[0].id, null)
   api_origin_request_policy_id = var.api_origin_request_policy_id != "" ? var.api_origin_request_policy_id : try(aws_cloudfront_origin_request_policy.api[0].id, null)
+  resource_name_prefix         = var.resource_name_prefix != "" ? "${var.resource_name_prefix}-" : ""
+  viewer_request_function_code = var.directory_routing_function_code != "" ? var.directory_routing_function_code : var.redirect_www_to_apex_function_code
 }
 
 resource "aws_cloudfront_cache_policy" "api" {
@@ -57,7 +59,7 @@ resource "aws_cloudfront_origin_request_policy" "api" {
 }
 
 resource "aws_cloudfront_response_headers_policy" "immutable_cache_headers" {
-  name = "immutable-cache-headers"
+  name = "${local.resource_name_prefix}immutable-cache-headers"
 
   custom_headers_config {
     items {
@@ -69,7 +71,7 @@ resource "aws_cloudfront_response_headers_policy" "immutable_cache_headers" {
 }
 
 resource "aws_cloudfront_response_headers_policy" "images_cache_headers" {
-  name = "images-cache-headers"
+  name = "${local.resource_name_prefix}images-cache-headers"
 
   custom_headers_config {
     items {
@@ -81,7 +83,7 @@ resource "aws_cloudfront_response_headers_policy" "images_cache_headers" {
 }
 
 resource "aws_cloudfront_response_headers_policy" "css_cache_headers" {
-  name = "css-cache-headers"
+  name = "${local.resource_name_prefix}css-cache-headers"
 
   custom_headers_config {
     items {
@@ -93,7 +95,7 @@ resource "aws_cloudfront_response_headers_policy" "css_cache_headers" {
 }
 
 resource "aws_cloudfront_cache_policy" "immutable_assets" {
-  name        = "immutable-assets"
+  name        = "${local.resource_name_prefix}immutable-assets"
   default_ttl = 31536000
   max_ttl     = 31536000
   min_ttl     = 86400
@@ -117,11 +119,49 @@ resource "aws_cloudfront_cache_policy" "immutable_assets" {
 }
 
 resource "aws_cloudfront_function" "redirect_www_to_apex" {
-  name    = "redirect-www-to-apex"
+  name    = "${local.resource_name_prefix}redirect-www-to-apex"
   runtime = "cloudfront-js-2.0"
-  comment = "301 redirect from www to apex for ${var.domain}"
+  comment = "Viewer request routing for ${var.domain}"
   publish = true
-  code    = var.redirect_www_to_apex_function_code
+  code    = local.viewer_request_function_code
+}
+
+resource "aws_cloudfront_origin_request_policy" "private_static" {
+  count = var.security_headers_policy ? 1 : 0
+
+  name = "${local.resource_name_prefix}private-static-origin"
+
+  cookies_config { cookie_behavior = "none" }
+  headers_config { header_behavior = "none" }
+  query_strings_config { query_string_behavior = "none" }
+}
+
+resource "aws_cloudfront_response_headers_policy" "static_security" {
+  count = var.security_headers_policy ? 1 : 0
+
+  name = "${local.resource_name_prefix}static-security"
+
+  security_headers_config {
+    content_security_policy {
+      content_security_policy = var.security_headers_content_security_policy
+      override                = true
+    }
+    content_type_options { override = true }
+    frame_options {
+      frame_option = "SAMEORIGIN"
+      override     = true
+    }
+    referrer_policy {
+      referrer_policy = "no-referrer"
+      override        = true
+    }
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = false
+      preload                    = false
+      override                   = true
+    }
+  }
 }
 
 resource "aws_cloudfront_distribution" "main" {
@@ -166,8 +206,9 @@ resource "aws_cloudfront_distribution" "main" {
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
     target_origin_id = "s3-website"
 
-    cache_policy_id          = var.default_cache_policy_id
-    origin_request_policy_id = var.origin_request_policy_id
+    cache_policy_id            = var.security_headers_policy ? "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" : var.default_cache_policy_id # CachingDisabled
+    origin_request_policy_id   = var.security_headers_policy ? aws_cloudfront_origin_request_policy.private_static[0].id : var.origin_request_policy_id
+    response_headers_policy_id = var.security_headers_policy ? aws_cloudfront_response_headers_policy.static_security[0].id : null
 
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
@@ -197,71 +238,103 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
-  ordered_cache_behavior {
-    path_pattern               = "*.css"
-    target_origin_id           = "s3-website"
-    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
-    cached_methods             = ["GET", "HEAD", "OPTIONS"]
-    viewer_protocol_policy     = "redirect-to-https"
-    compress                   = true
-    cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets.id
-    origin_request_policy_id   = var.origin_request_policy_id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.css_cache_headers.id
+  dynamic "ordered_cache_behavior" {
+    for_each = var.security_headers_policy ? [] : ["*.css"]
+    content {
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "s3-website"
+      allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+      cached_methods             = ["GET", "HEAD", "OPTIONS"]
+      viewer_protocol_policy     = "redirect-to-https"
+      compress                   = true
+      cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets.id
+      origin_request_policy_id   = var.origin_request_policy_id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.css_cache_headers.id
 
-    function_association {
-      event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      }
     }
   }
 
-  ordered_cache_behavior {
-    path_pattern               = "_next/static/*"
-    target_origin_id           = "s3-website"
-    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
-    cached_methods             = ["GET", "HEAD", "OPTIONS"]
-    viewer_protocol_policy     = "redirect-to-https"
-    compress                   = true
-    cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets.id
-    origin_request_policy_id   = var.origin_request_policy_id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.immutable_cache_headers.id
+  dynamic "ordered_cache_behavior" {
+    for_each = var.security_headers_policy ? [1] : []
+    content {
+      path_pattern               = "releases/*"
+      target_origin_id           = "s3-website"
+      allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+      cached_methods             = ["GET", "HEAD", "OPTIONS"]
+      viewer_protocol_policy     = "redirect-to-https"
+      compress                   = true
+      cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets.id
+      origin_request_policy_id   = aws_cloudfront_origin_request_policy.private_static[0].id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.static_security[0].id
 
-    function_association {
-      event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      }
     }
   }
 
-  ordered_cache_behavior {
-    path_pattern               = "images/*"
-    target_origin_id           = "s3-website"
-    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
-    cached_methods             = ["GET", "HEAD", "OPTIONS"]
-    viewer_protocol_policy     = "redirect-to-https"
-    compress                   = true
-    cache_policy_id            = var.default_cache_policy_id
-    origin_request_policy_id   = var.origin_request_policy_id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.images_cache_headers.id
+  dynamic "ordered_cache_behavior" {
+    for_each = var.security_headers_policy ? [] : ["_next/static/*"]
+    content {
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "s3-website"
+      allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+      cached_methods             = ["GET", "HEAD", "OPTIONS"]
+      viewer_protocol_policy     = "redirect-to-https"
+      compress                   = true
+      cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets.id
+      origin_request_policy_id   = var.origin_request_policy_id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.immutable_cache_headers.id
 
-    function_association {
-      event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      }
     }
   }
 
-  ordered_cache_behavior {
-    path_pattern               = "static/*"
-    target_origin_id           = "s3-website"
-    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
-    cached_methods             = ["GET", "HEAD", "OPTIONS"]
-    viewer_protocol_policy     = "redirect-to-https"
-    compress                   = true
-    cache_policy_id            = var.default_cache_policy_id
-    origin_request_policy_id   = var.origin_request_policy_id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.images_cache_headers.id
+  dynamic "ordered_cache_behavior" {
+    for_each = var.security_headers_policy ? [] : ["images/*"]
+    content {
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "s3-website"
+      allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+      cached_methods             = ["GET", "HEAD", "OPTIONS"]
+      viewer_protocol_policy     = "redirect-to-https"
+      compress                   = true
+      cache_policy_id            = var.default_cache_policy_id
+      origin_request_policy_id   = var.origin_request_policy_id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.images_cache_headers.id
 
-    function_association {
-      event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      }
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = var.security_headers_policy ? [] : ["static/*"]
+    content {
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "s3-website"
+      allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+      cached_methods             = ["GET", "HEAD", "OPTIONS"]
+      viewer_protocol_policy     = "redirect-to-https"
+      compress                   = true
+      cache_policy_id            = var.default_cache_policy_id
+      origin_request_policy_id   = var.origin_request_policy_id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.images_cache_headers.id
+
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      }
     }
   }
 
@@ -277,16 +350,22 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
+  dynamic "custom_error_response" {
+    for_each = var.strict_error_responses ? [403, 404] : []
+    content {
+      error_code         = custom_error_response.value
+      response_code      = 404
+      response_page_path = "/404.html"
+    }
   }
 
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
+  dynamic "custom_error_response" {
+    for_each = var.strict_error_responses ? [] : [403, 404]
+    content {
+      error_code         = custom_error_response.value
+      response_code      = 200
+      response_page_path = "/index.html"
+    }
   }
 
   tags = var.tags
@@ -312,4 +391,3 @@ resource "aws_s3_bucket_policy" "website" {
     ]
   })
 }
-
