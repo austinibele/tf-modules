@@ -9,9 +9,8 @@ The secure release profile disables the S3 website endpoint, uses
 `strict_error_responses`, and enables `security_headers_policy`. It requires a
 viewer-request function that maps only known directory routes to `index.html`;
 unknown paths remain origin misses and return `/404.html` with status 404.
-Only `releases/*` receives immutable caching in this profile; every other path
-uses AWS's managed CachingDisabled policy, the no-forwarding origin-request
-policy, and the security headers. The
+The secure profile uses AWS's managed CachingDisabled policy, the no-forwarding
+origin-request policy, and the security headers. The
 `security_headers_content_security_policy` input keeps the restrictive default
 but lets each artifact owner supply its reviewed same-origin policy.
 

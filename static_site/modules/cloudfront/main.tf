@@ -259,26 +259,6 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   dynamic "ordered_cache_behavior" {
-    for_each = var.security_headers_policy ? [1] : []
-    content {
-      path_pattern               = "releases/*"
-      target_origin_id           = "s3-website"
-      allowed_methods            = ["GET", "HEAD", "OPTIONS"]
-      cached_methods             = ["GET", "HEAD", "OPTIONS"]
-      viewer_protocol_policy     = "redirect-to-https"
-      compress                   = true
-      cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets.id
-      origin_request_policy_id   = aws_cloudfront_origin_request_policy.private_static[0].id
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.static_security[0].id
-
-      function_association {
-        event_type   = "viewer-request"
-        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
-      }
-    }
-  }
-
-  dynamic "ordered_cache_behavior" {
     for_each = var.security_headers_policy ? [] : ["_next/static/*"]
     content {
       path_pattern               = ordered_cache_behavior.value
