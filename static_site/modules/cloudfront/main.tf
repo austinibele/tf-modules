@@ -191,7 +191,7 @@ resource "aws_cloudfront_distribution" "main" {
         origin_ssl_protocols   = ["TLSv1.2"]
       }
 
-      dynamic "origin_custom_header" {
+      dynamic "custom_header" {
         for_each = var.api_origin_custom_header_value != "" ? [1] : []
         content {
           name  = var.api_origin_custom_header_name
