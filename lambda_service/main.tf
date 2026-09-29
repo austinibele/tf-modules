@@ -24,6 +24,8 @@ locals {
 
   dlq_name = one(concat(aws_sqs_queue.dlq[*].name, aws_sqs_queue.async_dlq[*].name))
   has_dlq  = var.sqs_trigger != null || var.enable_async_dlq
+  # Redrive moves into an SQS trigger DLQ are invisible to NumberOfMessagesSent.
+  dlq_alarm_on_depth_growth = var.sqs_trigger != null
 
   sqs_consume_statements = var.sqs_trigger == null ? [] : [{
     Effect = "Allow"
@@ -422,24 +424,75 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 }
 
 # -----------------------------------------------------------------------------
-# DLQ depth alarm (SQS trigger DLQ or async DLQ)
+# DLQ alarm: new dead letters (SQS trigger DLQ or async DLQ)
 # -----------------------------------------------------------------------------
+# Fires when dead letters arrive and returns to OK once they stop. A depth
+# alarm (visible > 0) stays in ALARM until someone drains the queue, and
+# CloudWatch notifies only on a state change, so later dead letters would page
+# nobody.
+#
+# Lambda writes async dead letters with SendMessage, which NumberOfMessagesSent
+# counts. SQS redrive moves are not counted, so an SQS trigger DLQ alarms when
+# its visible depth grows from one 5-minute period to the next. Maximum over
+# the period hides the brief dip while someone receives messages to inspect
+# them. FILL(REPEAT) holds the depth across publishing gaps, and FILL(0) gives
+# an idle, empty queue (which publishes nothing) a zero baseline. The 1-of-2
+# evaluation covers a latest period that is not published yet.
 
 resource "aws_cloudwatch_metric_alarm" "dlq" {
   count = local.has_dlq ? 1 : 0
 
   alarm_name          = "${local.function_name}-dlq-messages"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1
-  metric_name         = "ApproximateNumberOfMessagesVisible"
-  namespace           = "AWS/SQS"
-  period              = 300
-  statistic           = "Maximum"
+  evaluation_periods  = 2
+  datapoints_to_alarm = 1
   threshold           = 0
   treat_missing_data  = "notBreaching"
 
-  dimensions = {
-    QueueName = local.dlq_name
+  dynamic "metric_query" {
+    for_each = local.dlq_alarm_on_depth_growth ? [] : [1]
+    content {
+      id          = "sent"
+      return_data = true
+
+      metric {
+        metric_name = "NumberOfMessagesSent"
+        namespace   = "AWS/SQS"
+        period      = 300
+        stat        = "Sum"
+        dimensions = {
+          QueueName = local.dlq_name
+        }
+      }
+    }
+  }
+
+  dynamic "metric_query" {
+    for_each = local.dlq_alarm_on_depth_growth ? [1] : []
+    content {
+      id          = "visible"
+      return_data = false
+
+      metric {
+        metric_name = "ApproximateNumberOfMessagesVisible"
+        namespace   = "AWS/SQS"
+        period      = 300
+        stat        = "Maximum"
+        dimensions = {
+          QueueName = local.dlq_name
+        }
+      }
+    }
+  }
+
+  dynamic "metric_query" {
+    for_each = local.dlq_alarm_on_depth_growth ? [1] : []
+    content {
+      id          = "growth"
+      expression  = "DIFF(FILL(FILL(visible, REPEAT), 0))"
+      label       = "New dead letters"
+      return_data = true
+    }
   }
 
   alarm_actions = var.alarm_actions
@@ -447,6 +500,9 @@ resource "aws_cloudwatch_metric_alarm" "dlq" {
     log_group_name  = aws_cloudwatch_log_group.this.name
     ignore_patterns = []
     alarm_category  = "dlq"
+    # Log lookback for the Slack thread: covers the failed receives that
+    # happened before the alarm evaluated.
+    period_seconds = 600
   })
 
   tags = var.tags
