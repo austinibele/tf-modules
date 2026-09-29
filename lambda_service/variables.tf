@@ -234,6 +234,12 @@ variable "alarm_actions" {
   default     = []
 }
 
+variable "escalation_alarm_actions" {
+  description = "Extra SNS ARNs for the Errors and DLQ alarms only (not the log alarms), e.g. an email topic for a function whose alarm_actions route through itself"
+  type        = list(string)
+  default     = []
+}
+
 variable "alarm_category" {
   description = "alarm_category written into the Errors (and log-alarm) JSON descriptions"
   type        = string

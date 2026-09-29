@@ -128,12 +128,13 @@ module "ads_clustering" {
 | `schedule_expression` | `null` | Null = no schedule |
 | `schedule_timezone` | `null` | Set → EventBridge Scheduler |
 | `http_api` | `null` | `{ api_id, execution_arn, route_keys?, authorization_type? }` (`AWS_IAM` default; `NONE` allowed) |
-| `sqs_trigger` | `null` | Queue + DLQ + ESM (`ReportBatchItemFailures`) |
+| `sqs_trigger` | `null` | Queue + DLQ + ESM (`ReportBatchItemFailures`); the role may `ChangeMessageVisibility` for retry backoff |
 | `enable_async_dlq` | `false` | Async `dead_letter_config` |
 | `log_retention_days` | `14` | |
 | `enable_log_alarms` | `true` | Active only in `prod`/`live` |
 | `log_alarm_filters` | `ERROR` / `error` | |
 | `alarm_actions` | `[]` | |
+| `escalation_alarm_actions` | `[]` | Added to the Errors and DLQ alarms only |
 | `alarm_category` | `"lambda_service"` | Errors + log alarms |
 | `tags` | `{}` | |
 

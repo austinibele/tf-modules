@@ -33,6 +33,8 @@ locals {
       "sqs:ReceiveMessage",
       "sqs:DeleteMessage",
       "sqs:GetQueueAttributes",
+      # Lets the handler delay a failed record's next receive (retry backoff).
+      "sqs:ChangeMessageVisibility",
     ]
     Resource = [aws_sqs_queue.queue[0].arn]
   }]
@@ -414,7 +416,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
     ignore_patterns = []
     alarm_category  = var.alarm_category
   })
-  alarm_actions = var.alarm_actions
+  alarm_actions = concat(var.alarm_actions, var.escalation_alarm_actions)
 
   dimensions = {
     FunctionName = aws_lambda_function.this.function_name
@@ -495,7 +497,7 @@ resource "aws_cloudwatch_metric_alarm" "dlq" {
     }
   }
 
-  alarm_actions = var.alarm_actions
+  alarm_actions = concat(var.alarm_actions, var.escalation_alarm_actions)
   alarm_description = jsonencode({
     log_group_name  = aws_cloudwatch_log_group.this.name
     ignore_patterns = []
