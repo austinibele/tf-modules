@@ -77,17 +77,14 @@ locals {
   # rest become command. Avoids `/bin/sh -c "..."` wrapping so the process runs
   # as PID 1 with no shell-parsing surprises.
   command_argv = regexall("\\S+", local.command_to_run)
-  env_from_map = var.environment_map == null ? [] : [for k, v in var.environment_map : { name = k, value = tostring(v) }]
-  environment_values = concat([
-    {
-      name  = "ENV"
-      value = var.inputs.env
-    },
-    {
-      name  = "LOCAL_MODE"
-      value = "false"
-    }
-  ], local.env_from_map)
+  # One merged map so each name appears once and the caller wins on conflict. A duplicated
+  # ENV/LOCAL_MODE made the AWS provider replace the task definition on every plan.
+  environment_values = [
+    for k, v in merge(
+      { ENV = var.inputs.env, LOCAL_MODE = "false" },
+      var.environment_map == null ? {} : var.environment_map
+    ) : { name = k, value = tostring(v) }
+  ]
 
   container_definition = merge(
     {
