@@ -132,7 +132,7 @@ module "ads_clustering" {
 | `enable_async_dlq` | `false` | Async `dead_letter_config` |
 | `log_retention_days` | `14` | |
 | `enable_log_alarms` | `true` | Active only in `prod`/`live` |
-| `log_alarm_filters` | `ERROR` / `error` | |
+| `log_alarm_filters` | `{ $.level = "ERROR" }` / `"[ERROR]"` | Error-level records only (JSON level, or the Python runtime's `[ERROR]` line); other runtimes pass their own |
 | `alarm_actions` | `[]` | |
 | `escalation_alarm_actions` | `[]` | Added to the Errors and DLQ alarms only |
 | `alarm_category` | `"lambda_service"` | Errors + log alarms |

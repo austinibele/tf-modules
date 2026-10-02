@@ -216,15 +216,21 @@ variable "enable_log_alarms" {
   default     = true
 }
 
+# The defaults match error-level records only: a JSON record whose level is
+# ERROR (Powertools, or the JSON log format) and the Python runtime's plain
+# "[ERROR]" line (stdlib logging and unhandled exceptions). Bare terms such as
+# "error" match any line that contains them, including a function's own name
+# or log group in an INFO line. A Lambda whose runtime writes errors in
+# another shape (Node writes ERROR without brackets) passes its own filters.
 variable "log_alarm_filters" {
-  description = "Log alarm filter patterns"
+  description = "Log alarm filter patterns (CloudWatch filter syntax)"
   type = list(object({
     id      = string
     pattern = string
   }))
   default = [
-    { id = "filter-1", pattern = "ERROR" },
-    { id = "filter-2", pattern = "error" },
+    { id = "filter-1", pattern = "{ $.level = \"ERROR\" }" },
+    { id = "filter-2", pattern = "\"[ERROR]\"" },
   ]
 }
 
