@@ -46,6 +46,7 @@ locals {
 
   priority = {
     trusted_ips          = 10
+    host_ip_allowlist    = 11 # one per entry, 11 to 19
     internal_webhooks    = 20
     header_compound      = 30
     header_xff_only      = 40

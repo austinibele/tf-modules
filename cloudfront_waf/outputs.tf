@@ -10,7 +10,7 @@ output "log_group_name" {
 
 output "rule_actions" {
   description = "Rule name to action mode for plan review. omitted means the rule is not created."
-  value = {
+  value = merge({
     AllowTrustedIPs                       = local.trusted_ips_enabled ? "allow" : "omitted"
     AllowInternalWebhooks                 = local.bypass_enabled ? "allow" : "omitted"
     InvalidClientIdentityCompound         = var.header_compound_action
@@ -26,5 +26,5 @@ output "rule_actions" {
     SoftDynamicRate                       = var.soft_rate_action
     StaticObservationRate                 = "count"
     RateLimitBetterAuth                   = var.better_auth_rate_enabled ? var.better_auth_rate_action : "omitted"
-  }
+  }, { for entry in var.host_ip_allowlists : "BlockHost-${entry.name}-UnlistedIPs" => "block" })
 }

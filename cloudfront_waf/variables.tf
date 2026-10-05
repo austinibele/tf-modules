@@ -348,6 +348,54 @@ variable "better_auth_rate_action" {
 }
 
 # -----------------------------------------------------------------------------
+# Per-host IP allowlists
+# -----------------------------------------------------------------------------
+
+variable "host_ip_allowlists" {
+  description = "Hosts on this ACL that only listed IPv4 CIDRs may reach. For each entry, a request whose Host header equals host is blocked unless its source IP is in cidrs or, when bypass_header_name is set, it carries that header with the value host_ip_allowlist_bypass_values[name]. Requests for other hosts never match."
+  type = list(object({
+    name               = string
+    host               = string
+    cidrs              = list(string)
+    bypass_header_name = optional(string)
+  }))
+  default = []
+
+  validation {
+    condition     = length(var.host_ip_allowlists) <= 9
+    error_message = "host_ip_allowlists takes at most 9 entries (rule priorities 11 to 19)."
+  }
+
+  validation {
+    condition     = length(distinct([for entry in var.host_ip_allowlists : entry.name])) == length(var.host_ip_allowlists) && alltrue([for entry in var.host_ip_allowlists : can(regex("^[a-z0-9][a-z0-9-]*$", entry.name))])
+    error_message = "Each host_ip_allowlists name must be unique and match ^[a-z0-9][a-z0-9-]*$."
+  }
+
+  # The host is matched exactly. An empty or partial host would block the other sites on the ACL.
+  validation {
+    condition     = alltrue([for entry in var.host_ip_allowlists : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", entry.host))])
+    error_message = "Each host_ip_allowlists host must be one full lowercase hostname, such as example.com."
+  }
+
+  validation {
+    condition     = alltrue([for entry in var.host_ip_allowlists : length(entry.cidrs) > 0 && alltrue([for cidr in entry.cidrs : can(cidrnetmask(cidr))])])
+    error_message = "Each host_ip_allowlists entry needs at least one IPv4 CIDR."
+  }
+
+  validation {
+    condition     = alltrue([for entry in var.host_ip_allowlists : entry.bypass_header_name == null || can(regex("^[a-z0-9-]+$", entry.bypass_header_name))])
+    error_message = "bypass_header_name must be lowercase letters, digits and hyphens (WAF requires lowercase)."
+  }
+}
+
+variable "host_ip_allowlist_bypass_values" {
+  description = "Exact header value per host_ip_allowlists name. Required for each entry that sets bypass_header_name. Kept apart from host_ip_allowlists because a sensitive value cannot key a resource for_each."
+  type        = map(string)
+  default     = {}
+  sensitive   = true
+}
+
+# -----------------------------------------------------------------------------
 # Logging
 # -----------------------------------------------------------------------------
 

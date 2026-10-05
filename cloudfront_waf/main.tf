@@ -8,6 +8,7 @@
 # | AWSManagedRulesKnownBadInputsRuleSet (opt-in, off)     |      (200) |
 # | Custom: header (compound + XFF-only), path, traversal, |            |
 # | three rate rules with scope-downs, allow rules         | ~150–250 |
+# | Per-host IP allowlist rules (host_ip_allowlists), each |        ~15 |
 # | Projected total (Known Bad Inputs off)                 | ~1,075–1,175 |
 # | Projected total (Known Bad Inputs on)                  | ~1,275–1,375 |
 #
@@ -59,6 +60,81 @@ resource "aws_wafv2_web_acl" "this" {
       visibility_config {
         cloudwatch_metrics_enabled = true
         metric_name                = "${local.metric_name_prefix}-allowed-ips"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # 11–19 — Per-host IP allowlists: block one host unless the source IP is
+  # listed or the request carries that host's bypass header
+  # ---------------------------------------------------------------------------
+  dynamic "rule" {
+    for_each = var.host_ip_allowlists
+    content {
+      name     = "BlockHost-${rule.value.name}-UnlistedIPs"
+      priority = local.priority.host_ip_allowlist + rule.key
+
+      action {
+        block {}
+      }
+
+      statement {
+        and_statement {
+          statement {
+            byte_match_statement {
+              search_string         = rule.value.host
+              positional_constraint = "EXACTLY"
+              field_to_match {
+                single_header {
+                  name = "host"
+                }
+              }
+              text_transformation {
+                priority = 0
+                type     = "LOWERCASE"
+              }
+            }
+          }
+
+          statement {
+            not_statement {
+              statement {
+                ip_set_reference_statement {
+                  arn = aws_wafv2_ip_set.host_allowlist[rule.value.name].arn
+                }
+              }
+            }
+          }
+
+          dynamic "statement" {
+            for_each = rule.value.bypass_header_name != null ? [1] : []
+            content {
+              not_statement {
+                statement {
+                  byte_match_statement {
+                    search_string         = var.host_ip_allowlist_bypass_values[rule.value.name]
+                    positional_constraint = "EXACTLY"
+                    field_to_match {
+                      single_header {
+                        name = rule.value.bypass_header_name
+                      }
+                    }
+                    text_transformation {
+                      priority = 0
+                      type     = "NONE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${local.metric_name_prefix}-${rule.value.name}-host-allowlist"
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     }
