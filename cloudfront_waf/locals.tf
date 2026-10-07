@@ -61,5 +61,6 @@ locals {
     soft_dynamic_rate    = 130
     static_observation   = 140
     better_auth_rate     = 150
+    host_path_rate       = 160 # one per entry, 160 to 169
   }
 }

@@ -396,6 +396,60 @@ variable "host_ip_allowlist_bypass_values" {
 }
 
 # -----------------------------------------------------------------------------
+# Per-host path rate limits
+# -----------------------------------------------------------------------------
+
+variable "host_path_rate_limits" {
+  description = "Rate limits for one path prefix on one host, counted per source IP. For each entry, a source IP that sends more than limit requests whose Host header equals host and whose URI path starts with path_prefix within evaluation_window_sec seconds gets action (block or count) on the excess until its rate drops. Requests for other hosts or paths never match. Trusted IPs are allowed before this rule runs."
+  type = list(object({
+    name                  = string
+    host                  = string
+    path_prefix           = string
+    limit                 = number
+    evaluation_window_sec = optional(number, 300)
+    action                = optional(string, "block")
+  }))
+  default = []
+
+  validation {
+    condition     = length(var.host_path_rate_limits) <= 10
+    error_message = "host_path_rate_limits takes at most 10 entries (rule priorities 160 to 169)."
+  }
+
+  validation {
+    condition     = length(distinct([for entry in var.host_path_rate_limits : entry.name])) == length(var.host_path_rate_limits) && alltrue([for entry in var.host_path_rate_limits : can(regex("^[a-z0-9][a-z0-9-]*$", entry.name))])
+    error_message = "Each host_path_rate_limits name must be unique and match ^[a-z0-9][a-z0-9-]*$."
+  }
+
+  # The host is matched exactly, as in host_ip_allowlists: a partial host would rate-limit the other sites on the ACL.
+  validation {
+    condition     = alltrue([for entry in var.host_path_rate_limits : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", entry.host))])
+    error_message = "Each host_path_rate_limits host must be one full lowercase hostname, such as example.com."
+  }
+
+  validation {
+    condition     = alltrue([for entry in var.host_path_rate_limits : startswith(entry.path_prefix, "/") && entry.path_prefix == lower(entry.path_prefix)])
+    error_message = "Each host_path_rate_limits path_prefix must start with / and be lowercase (the rule lowercases the request path before matching)."
+  }
+
+  # 10 is the smallest limit AWS WAF accepts for a rate-based rule.
+  validation {
+    condition     = alltrue([for entry in var.host_path_rate_limits : entry.limit >= 10 && floor(entry.limit) == entry.limit])
+    error_message = "Each host_path_rate_limits limit must be a whole number of at least 10."
+  }
+
+  validation {
+    condition     = alltrue([for entry in var.host_path_rate_limits : contains([60, 120, 300, 600], entry.evaluation_window_sec)])
+    error_message = "Each host_path_rate_limits evaluation_window_sec must be 60, 120, 300, or 600."
+  }
+
+  validation {
+    condition     = alltrue([for entry in var.host_path_rate_limits : contains(["count", "block"], entry.action)])
+    error_message = "Each host_path_rate_limits action must be count or block."
+  }
+}
+
+# -----------------------------------------------------------------------------
 # Logging
 # -----------------------------------------------------------------------------
 

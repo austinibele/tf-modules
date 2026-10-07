@@ -26,5 +26,5 @@ output "rule_actions" {
     SoftDynamicRate                       = var.soft_rate_action
     StaticObservationRate                 = "count"
     RateLimitBetterAuth                   = var.better_auth_rate_enabled ? var.better_auth_rate_action : "omitted"
-  }, { for entry in var.host_ip_allowlists : "BlockHost-${entry.name}-UnlistedIPs" => "block" })
+  }, { for entry in var.host_ip_allowlists : "BlockHost-${entry.name}-UnlistedIPs" => "block" }, { for entry in var.host_path_rate_limits : "RateLimit-${entry.name}" => entry.action })
 }

@@ -9,6 +9,7 @@
 # | Custom: header (compound + XFF-only), path, traversal, |            |
 # | three rate rules with scope-downs, allow rules         | ~150–250 |
 # | Per-host IP allowlist rules (host_ip_allowlists), each |        ~15 |
+# | Per-host path rate rules (host_path_rate_limits), each |        ~25 |
 # | Projected total (Known Bad Inputs off)                 | ~1,075–1,175 |
 # | Projected total (Known Bad Inputs on)                  | ~1,275–1,375 |
 #
@@ -1167,6 +1168,78 @@ resource "aws_wafv2_web_acl" "this" {
       visibility_config {
         cloudwatch_metrics_enabled = true
         metric_name                = "${local.metric_name_prefix}-ba-rate-limit"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # 160 — Per-host path rate limits (host_path_rate_limits), one rule per entry
+  # ---------------------------------------------------------------------------
+  dynamic "rule" {
+    for_each = var.host_path_rate_limits
+    content {
+      name     = "RateLimit-${rule.value.name}"
+      priority = local.priority.host_path_rate + rule.key
+
+      action {
+        dynamic "count" {
+          for_each = rule.value.action == "count" ? [1] : []
+          content {}
+        }
+        dynamic "block" {
+          for_each = rule.value.action == "block" ? [1] : []
+          content {}
+        }
+      }
+
+      statement {
+        rate_based_statement {
+          limit                 = rule.value.limit
+          evaluation_window_sec = rule.value.evaluation_window_sec
+          # The scope-down pins the host, so the source IP alone is the key: one counter per IP for
+          # this host and path, independent of the ACL-wide dynamic rate rules (which only count).
+          aggregate_key_type = "IP"
+
+          scope_down_statement {
+            and_statement {
+              statement {
+                byte_match_statement {
+                  search_string         = rule.value.host
+                  positional_constraint = "EXACTLY"
+                  field_to_match {
+                    single_header {
+                      name = "host"
+                    }
+                  }
+                  text_transformation {
+                    priority = 0
+                    type     = "LOWERCASE"
+                  }
+                }
+              }
+
+              statement {
+                byte_match_statement {
+                  search_string         = rule.value.path_prefix
+                  positional_constraint = "STARTS_WITH"
+                  field_to_match {
+                    uri_path {}
+                  }
+                  text_transformation {
+                    priority = 0
+                    type     = "LOWERCASE"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${local.metric_name_prefix}-${rule.value.name}-rate-limit"
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     }
