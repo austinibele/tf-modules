@@ -91,7 +91,7 @@ variable "security_headers_frame_options" {
   type        = string
   default     = "SAMEORIGIN"
   validation {
-    condition     = var.security_headers_frame_options == null || contains(["SAMEORIGIN", "DENY"], var.security_headers_frame_options)
+    condition     = var.security_headers_frame_options == null ? true : contains(["SAMEORIGIN", "DENY"], var.security_headers_frame_options)
     error_message = "Use SAMEORIGIN, DENY, or null with an explicit CSP frame-ancestors policy."
   }
 }
