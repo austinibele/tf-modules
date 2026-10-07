@@ -147,9 +147,12 @@ resource "aws_cloudfront_response_headers_policy" "static_security" {
       override                = true
     }
     content_type_options { override = true }
-    frame_options {
-      frame_option = "SAMEORIGIN"
-      override     = true
+    dynamic "frame_options" {
+      for_each = var.security_headers_frame_options == null ? [] : [var.security_headers_frame_options]
+      content {
+        frame_option = frame_options.value
+        override     = true
+      }
     }
     referrer_policy {
       referrer_policy = "no-referrer"

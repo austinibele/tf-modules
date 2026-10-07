@@ -86,6 +86,16 @@ variable "security_headers_policy" {
   default     = false
 }
 
+variable "security_headers_frame_options" {
+  description = "Legacy X-Frame-Options header. Null omits it when an explicit CSP frame-ancestors allowlist owns framing."
+  type        = string
+  default     = "SAMEORIGIN"
+  validation {
+    condition     = var.security_headers_frame_options == null || contains(["SAMEORIGIN", "DENY"], var.security_headers_frame_options)
+    error_message = "Use SAMEORIGIN, DENY, or null with an explicit CSP frame-ancestors policy."
+  }
+}
+
 variable "security_headers_content_security_policy" {
   description = "Content-Security-Policy value for the opt-in static response headers."
   type        = string

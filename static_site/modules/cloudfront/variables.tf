@@ -95,6 +95,12 @@ variable "security_headers_policy" {
   default     = false
 }
 
+variable "security_headers_frame_options" {
+  description = "X-Frame-Options header, or null when CSP frame-ancestors owns framing."
+  type        = string
+  default     = "SAMEORIGIN"
+}
+
 variable "security_headers_content_security_policy" {
   description = "Content-Security-Policy value for the opt-in static response headers."
   type        = string
