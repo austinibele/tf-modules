@@ -200,7 +200,8 @@ locals {
 }
 
 resource "aws_iam_role" "events_role" {
-  count = local.create_events_role ? 1 : 0
+  permissions_boundary = var.permissions_boundary_arn
+  count                = local.create_events_role ? 1 : 0
 
   name = "${var.inputs.namespace}-${var.inputs.env}-${var.task_name}-events-ecs-role"
 
@@ -235,8 +236,9 @@ resource "aws_iam_role_policy" "events_run_task_policy" {
         Resource = "${replace(aws_ecs_task_definition.manual_task.arn, "/:[0-9]+$/", "")}:*"
       },
       {
-        Effect = "Allow",
-        Action = "iam:PassRole",
+        Effect    = "Allow",
+        Action    = "iam:PassRole",
+        Condition = { StringEquals = { "iam:PassedToService" = "ecs-tasks.amazonaws.com" } },
         Resource = [
           var.execution_role_arn,
           var.task_role_arn
