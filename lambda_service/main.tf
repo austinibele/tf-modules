@@ -69,7 +69,8 @@ resource "aws_cloudwatch_log_group" "this" {
 # -----------------------------------------------------------------------------
 
 resource "aws_iam_role" "this" {
-  name = local.iam_role_name
+  permissions_boundary = var.permissions_boundary_arn
+  name                 = local.iam_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -323,7 +324,8 @@ resource "aws_scheduler_schedule" "this" {
 }
 
 resource "aws_iam_role" "scheduler" {
-  count = local.schedule_scheduler ? 1 : 0
+  permissions_boundary = var.permissions_boundary_arn
+  count                = local.schedule_scheduler ? 1 : 0
 
   name = "${local.function_name}-scheduler-role"
 

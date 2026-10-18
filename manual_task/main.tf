@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    aws = {
+      source                = "hashicorp/aws"
+      configuration_aliases = [aws.iam, aws.execution]
+    }
+  }
+}
+
 # This module defines an ECS task definition for manual/one-off tasks.
 # 
 # Important note about networking:
@@ -112,6 +121,7 @@ locals {
 }
 
 resource "aws_ecs_task_definition" "manual_task" {
+  provider                 = aws.execution
   family                   = "${var.inputs.namespace}-${var.task_name}-${var.inputs.env}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -200,7 +210,9 @@ locals {
 }
 
 resource "aws_iam_role" "events_role" {
-  count = local.create_events_role ? 1 : 0
+  provider             = aws.iam
+  permissions_boundary = var.permissions_boundary_arn
+  count                = local.create_events_role ? 1 : 0
 
   name = "${var.inputs.namespace}-${var.inputs.env}-${var.task_name}-events-ecs-role"
 
@@ -221,7 +233,8 @@ resource "aws_iam_role" "events_role" {
 }
 
 resource "aws_iam_role_policy" "events_run_task_policy" {
-  count = local.create_events_role ? 1 : 0
+  provider = aws.iam
+  count    = local.create_events_role ? 1 : 0
 
   name = "${var.inputs.namespace}-${var.inputs.env}-${var.task_name}-events-run-task-policy"
   role = aws_iam_role.events_role[0].id
@@ -235,8 +248,9 @@ resource "aws_iam_role_policy" "events_run_task_policy" {
         Resource = "${replace(aws_ecs_task_definition.manual_task.arn, "/:[0-9]+$/", "")}:*"
       },
       {
-        Effect = "Allow",
-        Action = "iam:PassRole",
+        Effect    = "Allow",
+        Action    = "iam:PassRole",
+        Condition = { StringEquals = { "iam:PassedToService" = "ecs-tasks.amazonaws.com" } },
         Resource = [
           var.execution_role_arn,
           var.task_role_arn
