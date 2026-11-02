@@ -14,6 +14,8 @@ Function name: `${namespace}-${env}-${name}`. Log group: `/aws/lambda/${function
 module "slack_alert" {
   source = "git::https://github.com/austinibele/tf-modules.git//lambda_service?ref=main"
 
+  permissions_boundary_arn = var.lambda_permissions_boundary_arn
+
   namespace = var.namespace
   env       = var.env
   name      = "slack-alert-notifier"
@@ -67,6 +69,8 @@ module "slack_alert" {
 module "force_redeploy" {
   source = "git::https://github.com/austinibele/tf-modules.git//lambda_service?ref=main"
 
+  permissions_boundary_arn = var.lambda_permissions_boundary_arn
+
   namespace   = var.namespace
   env         = var.env
   name        = "force-redeploy"
@@ -75,8 +79,9 @@ module "force_redeploy" {
   s3_bucket = var.s3_lambda_zips_bucket_name
   s3_key    = "placeholders/force-redeploy.zip"
 
-  schedule_expression = "cron(0 5 * * ? *)"
-  schedule_timezone   = "America/New_York" # omit for a classic UTC EventBridge rule
+  schedule_expression                = "cron(0 5 * * ? *)"
+  schedule_timezone                  = "America/New_York" # omit for a classic UTC EventBridge rule
+  scheduler_permissions_boundary_arn = var.scheduler_permissions_boundary_arn
 
   alarm_actions = [aws_sns_topic.alarms.arn]
   tags          = local.tags
@@ -88,6 +93,8 @@ module "force_redeploy" {
 ```hcl
 module "ads_clustering" {
   source = "git::https://github.com/austinibele/tf-modules.git//lambda_service?ref=main"
+
+  permissions_boundary_arn = var.lambda_permissions_boundary_arn
 
   namespace    = var.namespace
   env          = var.env
@@ -103,6 +110,8 @@ module "ads_clustering" {
 }
 ```
 
+Scheduler callers must supply `scheduler_permissions_boundary_arn` before upgrading to this module revision. Calls without Scheduler, including classic UTC EventBridge rules, do not require this input. Role names and resource addresses are unchanged.
+
 `enable_async_dlq` and `sqs_trigger` are mutually exclusive (same `${function_name}-dlq` name).
 
 ## Inputs
@@ -111,6 +120,8 @@ module "ads_clustering" {
 | --- | --- | --- |
 | `namespace`, `env`, `name` | required | Function name `${namespace}-${env}-${name}` |
 | `description` | `""` | |
+| `permissions_boundary_arn` | required | Foundation runtime boundary for the Lambda function role |
+| `scheduler_permissions_boundary_arn` | `null` | Separate foundation runtime boundary required when both schedule inputs enable Scheduler; no fallback to the Lambda boundary |
 | `iam_role_name` | `null` → `${function_name}-role` | Preserve existing roles on import |
 | `package_type` | `"Zip"` | `Zip` or `Image` |
 | `s3_bucket`, `s3_key` | `null` | Required for Zip |

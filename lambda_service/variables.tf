@@ -267,3 +267,10 @@ variable "permissions_boundary_arn" {
     error_message = "A foundation runtime boundary ARN is required."
   }
 }
+
+variable "scheduler_permissions_boundary_arn" {
+  description = "Reviewed, foundation-owned Scheduler permissions ceiling; required when schedule_expression and schedule_timezone enable Scheduler."
+  type        = string
+  default     = null
+  nullable    = true
+}

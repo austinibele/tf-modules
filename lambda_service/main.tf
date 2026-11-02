@@ -324,10 +324,17 @@ resource "aws_scheduler_schedule" "this" {
 }
 
 resource "aws_iam_role" "scheduler" {
-  permissions_boundary = var.permissions_boundary_arn
+  permissions_boundary = var.scheduler_permissions_boundary_arn
   count                = local.schedule_scheduler ? 1 : 0
 
   name = "${local.function_name}-scheduler-role"
+
+  lifecycle {
+    precondition {
+      condition     = can(regex("^arn:aws:iam::[0-9]{12}:policy/crm-security/runtime-[a-z0-9-]+$", var.scheduler_permissions_boundary_arn))
+      error_message = "EventBridge Scheduler requires its own foundation runtime boundary ARN."
+    }
+  }
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
