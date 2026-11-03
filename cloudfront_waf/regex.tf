@@ -47,3 +47,20 @@ resource "aws_wafv2_regex_pattern_set" "static_extensions" {
 
   tags = var.tags
 }
+
+# Probe paths for software none of the callers run (PHP, WordPress, CGI). Only
+# created when the caller passes probe_patterns; joins HighConfidencePath.
+resource "aws_wafv2_regex_pattern_set" "paths_probe" {
+  count = local.probe_paths_enabled ? 1 : 0
+  name  = "${local.resource_prefix}-paths-probe"
+  scope = "CLOUDFRONT"
+
+  dynamic "regular_expression" {
+    for_each = var.probe_patterns
+    content {
+      regex_string = regular_expression.value
+    }
+  }
+
+  tags = var.tags
+}

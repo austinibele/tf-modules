@@ -1,4 +1,4 @@
-# WCU budget (plan: stay ≤ 1500; Linux rule set intentionally omitted)
+# WCU budget (Linux rule set intentionally omitted; 1,500 to 2,000 is one price tier)
 #
 # | Component                                              | WCU        |
 # | ------------------------------------------------------ | ---------: |
@@ -10,6 +10,9 @@
 # | three rate rules with scope-downs, allow rules         | ~150–250 |
 # | Per-host IP allowlist rules (host_ip_allowlists), each |        ~15 |
 # | Per-host path rate rules (host_path_rate_limits), each |        ~25 |
+# | Probe path set in HighConfidencePath (probe_patterns)  |        ~65 |
+# | Label blocks (label_blocks), each pair                 |     ~20–40 |
+# | Probe ban rule (probe_ban_enabled)                     |         ~2 |
 # | Projected total (Known Bad Inputs off)                 | ~1,075–1,175 |
 # | Projected total (Known Bad Inputs on)                  | ~1,275–1,375 |
 #
@@ -301,6 +304,44 @@ resource "aws_wafv2_web_acl" "this" {
   }
 
   # ---------------------------------------------------------------------------
+  # 21 — Probe ban: addresses the waf-probe-ban job listed after repeated
+  # HighConfidencePath blocks. After the trusted, allowlist and webhook rules,
+  # so those are never banned.
+  # ---------------------------------------------------------------------------
+  dynamic "rule" {
+    for_each = var.probe_ban_enabled ? [1] : []
+    content {
+      name     = "BlockProbeBan"
+      priority = local.priority.probe_ban
+
+      action {
+        block {}
+      }
+
+      statement {
+        or_statement {
+          statement {
+            ip_set_reference_statement {
+              arn = aws_wafv2_ip_set.probe_ban["ipv4"].arn
+            }
+          }
+          statement {
+            ip_set_reference_statement {
+              arn = aws_wafv2_ip_set.probe_ban["ipv6"].arn
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${local.metric_name_prefix}-probe-ban"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
   # 30 — Invalid client-identity (compound: XFF AND any second header)
   # ---------------------------------------------------------------------------
   rule {
@@ -472,6 +513,33 @@ resource "aws_wafv2_web_acl" "this" {
               text_transformation {
                 priority = 3
                 type     = "NORMALIZE_PATH"
+              }
+            }
+          }
+          dynamic "statement" {
+            for_each = local.probe_paths_enabled ? [1] : []
+            content {
+              regex_pattern_set_reference_statement {
+                arn = aws_wafv2_regex_pattern_set.paths_probe[0].arn
+                field_to_match {
+                  uri_path {}
+                }
+                text_transformation {
+                  priority = 0
+                  type     = "URL_DECODE"
+                }
+                text_transformation {
+                  priority = 1
+                  type     = "URL_DECODE"
+                }
+                text_transformation {
+                  priority = 2
+                  type     = "LOWERCASE"
+                }
+                text_transformation {
+                  priority = 3
+                  type     = "NORMALIZE_PATH"
+                }
               }
             }
           }
@@ -740,12 +808,209 @@ resource "aws_wafv2_web_acl" "this" {
         managed_rule_group_statement {
           name        = "AWSManagedRulesSQLiRuleSet"
           vendor_name = "AWS"
+
+          dynamic "rule_action_override" {
+            for_each = var.sqli_rule_action_overrides
+            content {
+              name = rule_action_override.value.name
+              action_to_use {
+                dynamic "count" {
+                  for_each = rule_action_override.value.action == "count" ? [1] : []
+                  content {}
+                }
+                dynamic "allow" {
+                  for_each = rule_action_override.value.action == "allow" ? [1] : []
+                  content {}
+                }
+                dynamic "block" {
+                  for_each = rule_action_override.value.action == "block" ? [1] : []
+                  content {}
+                }
+                dynamic "captcha" {
+                  for_each = rule_action_override.value.action == "captcha" ? [1] : []
+                  content {}
+                }
+                dynamic "challenge" {
+                  for_each = rule_action_override.value.action == "challenge" ? [1] : []
+                  content {}
+                }
+              }
+            }
+          }
         }
       }
 
       visibility_config {
         cloudwatch_metrics_enabled = true
         metric_name                = "${local.metric_name_prefix}-sqli"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # 101–108 — Label blocks: block a request carrying a label that a counted
+  # Common Rule Set or SQLi rule added, except on the entry's hosts (and path
+  # prefix). The count rule of a pair marks the spared requests with an exempt
+  # label; the block rule skips requests that carry it.
+  # ---------------------------------------------------------------------------
+  dynamic "rule" {
+    for_each = [for entry in local.label_block_rules : entry if length(entry.except_hosts) > 0]
+    content {
+      name     = "LabelBlockExempt-${rule.value.name}"
+      priority = rule.value.exempt_priority
+
+      action {
+        count {}
+      }
+
+      rule_label {
+        name = rule.value.exempt_label
+      }
+
+      statement {
+        dynamic "regex_match_statement" {
+          for_each = rule.value.except_path_prefix == null ? [1] : []
+          content {
+            regex_string = rule.value.host_regex
+            field_to_match {
+              single_header {
+                name = "host"
+              }
+            }
+            text_transformation {
+              priority = 0
+              type     = "LOWERCASE"
+            }
+          }
+        }
+
+        dynamic "and_statement" {
+          for_each = rule.value.except_path_prefix != null ? [1] : []
+          content {
+            statement {
+              regex_match_statement {
+                regex_string = rule.value.host_regex
+                field_to_match {
+                  single_header {
+                    name = "host"
+                  }
+                }
+                text_transformation {
+                  priority = 0
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+            statement {
+              byte_match_statement {
+                search_string         = rule.value.except_path_prefix
+                positional_constraint = "STARTS_WITH"
+                field_to_match {
+                  uri_path {}
+                }
+                text_transformation {
+                  priority = 0
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${local.metric_name_prefix}-${rule.value.name}-label-block-exempt"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.label_block_rules
+    content {
+      name     = "LabelBlock-${rule.value.name}"
+      priority = rule.value.block_priority
+
+      action {
+        block {}
+      }
+
+      statement {
+        dynamic "label_match_statement" {
+          for_each = length(rule.value.except_hosts) == 0 && length(rule.value.labels) == 1 ? rule.value.labels : []
+          content {
+            scope = "LABEL"
+            key   = label_match_statement.value
+          }
+        }
+
+        dynamic "or_statement" {
+          for_each = length(rule.value.except_hosts) == 0 && length(rule.value.labels) > 1 ? [1] : []
+          content {
+            dynamic "statement" {
+              for_each = rule.value.labels
+              iterator = label
+              content {
+                label_match_statement {
+                  scope = "LABEL"
+                  key   = label.value
+                }
+              }
+            }
+          }
+        }
+
+        dynamic "and_statement" {
+          for_each = length(rule.value.except_hosts) > 0 ? [1] : []
+          content {
+            dynamic "statement" {
+              for_each = length(rule.value.labels) == 1 ? rule.value.labels : []
+              iterator = label
+              content {
+                label_match_statement {
+                  scope = "LABEL"
+                  key   = label.value
+                }
+              }
+            }
+
+            dynamic "statement" {
+              for_each = length(rule.value.labels) > 1 ? [1] : []
+              content {
+                or_statement {
+                  dynamic "statement" {
+                    for_each = rule.value.labels
+                    iterator = label
+                    content {
+                      label_match_statement {
+                        scope = "LABEL"
+                        key   = label.value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            statement {
+              not_statement {
+                statement {
+                  label_match_statement {
+                    scope = "LABEL"
+                    key   = rule.value.exempt_label
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${local.metric_name_prefix}-${rule.value.name}-label-block"
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     }

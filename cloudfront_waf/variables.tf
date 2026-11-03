@@ -132,6 +132,22 @@ variable "path_rule_action" {
   }
 }
 
+variable "probe_patterns" {
+  description = "Extra URI path regexes for HighConfidencePath, for probes of software the sites behind this ACL never run (PHP, WordPress, CGI). Matched after two URL decodes, lowercasing and path normalization, like the built-in patterns. Default empty: no pattern set is created and the rule is unchanged. Requires path_block_mode full."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(var.probe_patterns) <= 10 && alltrue([for pattern in var.probe_patterns : length(pattern) <= 200 && can(regex(pattern, ""))])
+    error_message = "probe_patterns takes at most 10 valid regexes of at most 200 characters (one WAF regex pattern set)."
+  }
+
+  validation {
+    condition     = length(var.probe_patterns) == 0 || var.path_block_mode == "full"
+    error_message = "probe_patterns requires path_block_mode full (they join the HighConfidencePath OR statement)."
+  }
+}
+
 variable "traversal_action" {
   description = "Action for the URI traversal rule."
   type        = string
@@ -295,6 +311,81 @@ variable "enable_sqli" {
 
 variable "sqli_override_count" {
   description = "When true, the SQLi group uses override_action count."
+  type        = bool
+  default     = false
+}
+
+variable "sqli_rule_action_overrides" {
+  description = "Per-rule action overrides for the SQLi group, like common_rule_set_rule_action_overrides. Default empty: every SQLi rule keeps its own action."
+  type = list(object({
+    name   = string
+    action = string
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for override in var.sqli_rule_action_overrides :
+      contains(["count", "allow", "block", "captcha", "challenge"], override.action)
+    ])
+    error_message = "Each SQLi override action must be count, allow, block, captcha, or challenge."
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Label blocks: re-block a counted managed rule everywhere but chosen hosts
+# -----------------------------------------------------------------------------
+
+variable "label_blocks" {
+  description = "Block rules on labels that a Common Rule Set or SQLi rule adds while overridden to count (common_rule_set_rule_action_overrides, sqli_rule_action_overrides), so the block can spare chosen hosts. For each entry, a request carrying any of labels is blocked unless its Host header is one of except_hosts and, when except_path_prefix is set, its URI path starts with that prefix. Labels are case-sensitive, e.g. awswaf:managed:aws:core-rule-set:SizeRestrictions_QueryString. Rules sit at 101 to 108, after both groups."
+  type = list(object({
+    name               = string
+    labels             = list(string)
+    except_hosts       = optional(list(string), [])
+    except_path_prefix = optional(string)
+  }))
+  default = []
+
+  validation {
+    condition     = length(var.label_blocks) <= 4
+    error_message = "label_blocks takes at most 4 entries (two rules each, priorities 101 to 108)."
+  }
+
+  validation {
+    condition     = length(distinct([for entry in var.label_blocks : entry.name])) == length(var.label_blocks) && alltrue([for entry in var.label_blocks : can(regex("^[a-z0-9][a-z0-9-]*$", entry.name))])
+    error_message = "Each label_blocks name must be unique and match ^[a-z0-9][a-z0-9-]*$."
+  }
+
+  # Only groups evaluated before priority 101 can have added the label.
+  validation {
+    condition = alltrue([for entry in var.label_blocks : length(entry.labels) > 0 && alltrue([
+      for label in entry.labels : startswith(label, "awswaf:managed:aws:core-rule-set:") || startswith(label, "awswaf:managed:aws:sql-database:")
+    ])])
+    error_message = "Each label_blocks entry needs at least one label, each from awswaf:managed:aws:core-rule-set: or awswaf:managed:aws:sql-database:."
+  }
+
+  validation {
+    condition     = alltrue([for entry in var.label_blocks : alltrue([for host in entry.except_hosts : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", host))])])
+    error_message = "Each label_blocks except_hosts entry must be one full lowercase hostname, such as example.com."
+  }
+
+  validation {
+    condition     = alltrue([for entry in var.label_blocks : entry.except_path_prefix == null ? true : length(entry.except_hosts) > 0 && startswith(entry.except_path_prefix, "/") && entry.except_path_prefix == lower(entry.except_path_prefix)])
+    error_message = "A label_blocks except_path_prefix needs except_hosts, must start with / and be lowercase (the rule lowercases the request path)."
+  }
+
+  validation {
+    condition     = alltrue([for entry in var.label_blocks : length(join("|", entry.except_hosts)) <= 160])
+    error_message = "A label_blocks entry's except_hosts must fit one 200-character WAF regex (at most 160 characters joined)."
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Probe ban (24 h, maintained by the waf-probe-ban job)
+# -----------------------------------------------------------------------------
+
+variable "probe_ban_enabled" {
+  description = "Create two empty IP sets (IPv4, IPv6) and a BlockProbeBan rule at priority 21 that blocks their addresses. A job outside this module writes the addresses; Terraform ignores them. Default false."
   type        = bool
   default     = false
 }

@@ -43,11 +43,26 @@ locals {
   static_extension_regex = "\\.(css|js|mjs|map|woff|woff2|ttf|eot|png|jpg|jpeg|gif|webp|svg|ico|avif)$"
 
   path_remainder_rule_enabled = var.path_block_mode == "impossible_only"
+  probe_paths_enabled         = length(var.probe_patterns) > 0
+
+  # One count rule (only when an entry spares hosts) and one block rule per
+  # label_blocks entry, in pairs from priority 101. The count rule adds the
+  # exempt label that the block rule checks, which keeps each statement within
+  # the nesting depth the other rules already use.
+  label_block_rules = [
+    for index, entry in var.label_blocks : merge(entry, {
+      exempt_priority = local.priority.label_blocks + 2 * index
+      block_priority  = local.priority.label_blocks + 2 * index + 1
+      exempt_label    = "label-block-exempt:${entry.name}"
+      host_regex      = "^(${join("|", [for host in entry.except_hosts : replace(host, ".", "\\.")])})$"
+    })
+  ]
 
   priority = {
     trusted_ips          = 10
     host_ip_allowlist    = 11 # one per entry, 11 to 19
     internal_webhooks    = 20
+    probe_ban            = 21
     header_compound      = 30
     header_xff_only      = 40
     high_confidence_path = 50
@@ -56,6 +71,7 @@ locals {
     amazon_ip_reputation = 80
     common_rule_set      = 90
     sqli                 = 100
+    label_blocks         = 101 # two per entry, 101 to 108
     known_bad_inputs     = 110
     hard_dynamic_rate    = 120
     soft_dynamic_rate    = 130
