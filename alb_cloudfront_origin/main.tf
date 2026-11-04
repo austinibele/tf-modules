@@ -19,9 +19,14 @@ resource "aws_cloudfront_distribution" "this" {
     domain_name = var.origin_domain_name
     origin_id   = local.origin_id
 
-    custom_header {
-      name  = local.origin_verify_header_name
-      value = var.origin_verify_secret
+    # A custom origin header overrides a same-named viewer header, so while both exist
+    # this value wins over the one the viewer-request function sets.
+    dynamic "custom_header" {
+      for_each = var.origin_verify_secret == null ? [] : [1]
+      content {
+        name  = local.origin_verify_header_name
+        value = var.origin_verify_secret
+      }
     }
 
     custom_origin_config {
@@ -40,6 +45,14 @@ resource "aws_cloudfront_distribution" "this" {
 
     cache_policy_id          = local.caching_disabled_policy_id
     origin_request_policy_id = local.all_viewer_policy_id
+
+    dynamic "function_association" {
+      for_each = var.viewer_request_function_arn == null ? [] : [1]
+      content {
+        event_type   = "viewer-request"
+        function_arn = var.viewer_request_function_arn
+      }
+    }
 
     viewer_protocol_policy = "redirect-to-https"
     compress               = true

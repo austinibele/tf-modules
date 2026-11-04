@@ -19,9 +19,18 @@ variable "origin_domain_name" {
 }
 
 variable "origin_verify_secret" {
-  description = "Value of the X-Origin-Verify custom origin header."
+  description = "Value of the X-Origin-Verify custom origin header. Null adds no custom header: the viewer-request function sets it instead."
   type        = string
   sensitive   = true
+  default     = null
+  nullable    = true
+}
+
+variable "viewer_request_function_arn" {
+  description = "CloudFront Function run on every viewer request of the default behavior (the shared origin-verify function from infra-shared). Null attaches none."
+  type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "web_acl_arn" {
