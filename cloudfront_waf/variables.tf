@@ -561,6 +561,17 @@ variable "log_retention_days" {
   default     = 30
 }
 
+variable "log_redacted_header_names" {
+  description = "Request headers whose values the WAF logs replace with REDACTED (lowercase; WAF matches header names case-insensitively). The bypass header is always redacted on top of these. Session cookies and bearer tokens would otherwise sit in the log group for log_retention_days, readable by anyone with CloudWatch Logs read access."
+  type        = list(string)
+  default     = ["authorization", "cookie"]
+
+  validation {
+    condition     = alltrue([for name in var.log_redacted_header_names : name == lower(name)])
+    error_message = "log_redacted_header_names must be lowercase."
+  }
+}
+
 variable "sampled_requests_enabled" {
   description = "Enable WAF sampled-request visibility on rules."
   type        = bool
