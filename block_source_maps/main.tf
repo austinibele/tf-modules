@@ -60,7 +60,13 @@ locals {
           statusDescription: 'Forbidden',
         };
       }
-      const value = await kvs.get('${var.origin_verify_key}');
+      // No store, no header: the origin's firewall decides. An uncaught error here would answer 503 to every viewer.
+      let value;
+      try {
+        value = await kvs.get('${var.origin_verify_key}');
+      } catch (error) {
+        return request;
+      }
     %{for name in var.origin_verify_header_names~}
       request.headers['${name}'] = { value: value };
     %{endfor~}
