@@ -13,8 +13,8 @@
 # | Probe path set in HighConfidencePath (probe_patterns)  |        ~65 |
 # | Label blocks (label_blocks), each pair                 |     ~20–40 |
 # | Probe ban rule (probe_ban_enabled)                     |         ~2 |
-# | Projected total (Known Bad Inputs off)                 | ~1,075–1,175 |
-# | Projected total (Known Bad Inputs on)                  | ~1,275–1,375 |
+# | Projected total, base only (Known Bad Inputs off)      | ~1,075–1,175 |
+# | infra-crm prod with every option on (check-capacity)   |      1,708 |
 #
 # Do not add AWSManagedRulesLinuxRuleSet (200 WCU). Anonymous IP List and
 # Common Bot Control are deferred (cost + WCU).
@@ -305,8 +305,10 @@ resource "aws_wafv2_web_acl" "this" {
 
   # ---------------------------------------------------------------------------
   # 21 — Probe ban: addresses the waf-probe-ban job listed after repeated
-  # HighConfidencePath blocks. After the trusted, allowlist and webhook rules,
-  # so those are never banned.
+  # HighConfidencePath blocks. After the two allow rules (trusted IPs, internal
+  # webhooks), so those are never banned. Anything else can be, including an
+  # address in a host_ip_allowlists range or a NAT shared with a scanner;
+  # deleting its row from the job's table lifts the ban on the next run.
   # ---------------------------------------------------------------------------
   dynamic "rule" {
     for_each = var.probe_ban_enabled ? [1] : []

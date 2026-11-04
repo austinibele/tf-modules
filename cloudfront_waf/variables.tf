@@ -138,7 +138,7 @@ variable "probe_patterns" {
   default     = []
 
   validation {
-    condition     = length(var.probe_patterns) <= 10 && alltrue([for pattern in var.probe_patterns : length(pattern) <= 200 && can(regex(pattern, ""))])
+    condition     = length(var.probe_patterns) <= 10 && alltrue([for pattern in var.probe_patterns : length(pattern) <= 200 && can(regexall(pattern, ""))])
     error_message = "probe_patterns takes at most 10 valid regexes of at most 200 characters (one WAF regex pattern set)."
   }
 
