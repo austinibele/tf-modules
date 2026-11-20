@@ -16,7 +16,8 @@ resource "aws_cloudwatch_log_group" "dispatcher" {
 }
 
 resource "aws_iam_role" "dispatcher" {
-  name = "${var.function_name}-role"
+  permissions_boundary = var.permissions_boundary_arn
+  name                 = "${var.function_name}-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -61,9 +62,10 @@ resource "aws_iam_role_policy" "dispatcher" {
         }
       },
       {
-        Effect   = "Allow"
-        Action   = "iam:PassRole"
-        Resource = var.pass_role_arns
+        Effect    = "Allow"
+        Action    = "iam:PassRole"
+        Condition = { StringEquals = { "iam:PassedToService" = "ecs-tasks.amazonaws.com" } }
+        Resource  = var.pass_role_arns
       }
     ]
   })
