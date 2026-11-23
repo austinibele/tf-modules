@@ -208,3 +208,19 @@ variable "wait_for_deployment" {
   type        = bool
   default     = false
 }
+
+variable "distribution_certificate_arn" {
+  description = "Optional externally validated ACM certificate ARN for the distribution. The regular site certificate and validation records remain managed independently."
+  type        = string
+  default     = ""
+}
+
+variable "supplemental_distribution_aliases" {
+  description = "Optional aliases whose certificate validation and traffic records are owned outside the module. Requires distribution_certificate_arn."
+  type        = list(string)
+  default     = []
+  validation {
+    condition     = length(var.supplemental_distribution_aliases) == 0 || var.distribution_certificate_arn != ""
+    error_message = "Provide an externally validated distribution certificate covering all supplemental aliases."
+  }
+}

@@ -33,11 +33,11 @@ module "static_site_cloudfront" {
   source = "./modules/cloudfront"
 
   domain                                   = var.domain
-  aliases                                  = local.computed_aliases
+  aliases                                  = distinct(concat(local.computed_aliases, var.supplemental_distribution_aliases))
   bucket_domain_name                       = module.static_site_bucket.bucket_regional_domain_name
   bucket_id                                = module.static_site_bucket.bucket_id
   bucket_arn                               = module.static_site_bucket.bucket_arn
-  acm_certificate_arn                      = module.static_site_route53.certificate_validation_arn
+  acm_certificate_arn                      = var.distribution_certificate_arn != "" ? var.distribution_certificate_arn : module.static_site_route53.certificate_validation_arn
   tags                                     = var.tags
   web_acl_id                               = var.web_acl_id
   resource_name_prefix                     = var.resource_name_prefix
