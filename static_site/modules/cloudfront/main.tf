@@ -7,11 +7,21 @@ resource "aws_cloudfront_origin_access_control" "website_oac" {
 }
 
 locals {
+  api_lambda_oac_enabled       = local.api_origin_enabled && var.api_origin_lambda_oac
   api_origin_enabled           = var.api_origin_domain_name != ""
   api_cache_policy_id          = var.api_cache_policy_id != "" ? var.api_cache_policy_id : try(aws_cloudfront_cache_policy.api[0].id, null)
   api_origin_request_policy_id = var.api_origin_request_policy_id != "" ? var.api_origin_request_policy_id : try(aws_cloudfront_origin_request_policy.api[0].id, null)
   resource_name_prefix         = var.resource_name_prefix != "" ? "${var.resource_name_prefix}-" : ""
   viewer_request_function_code = var.directory_routing_function_code != "" ? var.directory_routing_function_code : var.redirect_www_to_apex_function_code
+}
+
+resource "aws_cloudfront_origin_access_control" "lambda_oac" {
+  count                             = local.api_lambda_oac_enabled ? 1 : 0
+  name                              = "lambda-api-oac-${var.domain}"
+  description                       = "Origin Access Control for ${var.domain} API"
+  origin_access_control_origin_type = "lambda"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
 }
 
 resource "aws_cloudfront_cache_policy" "api" {
@@ -59,6 +69,8 @@ resource "aws_cloudfront_origin_request_policy" "api" {
 }
 
 resource "aws_cloudfront_response_headers_policy" "immutable_cache_headers" {
+  count = var.private_static_cache_immutable_assets ? 0 : 1
+
   name = "${local.resource_name_prefix}immutable-cache-headers"
 
   custom_headers_config {
@@ -71,6 +83,8 @@ resource "aws_cloudfront_response_headers_policy" "immutable_cache_headers" {
 }
 
 resource "aws_cloudfront_response_headers_policy" "images_cache_headers" {
+  count = var.private_static_cache_immutable_assets ? 0 : 1
+
   name = "${local.resource_name_prefix}images-cache-headers"
 
   custom_headers_config {
@@ -83,6 +97,8 @@ resource "aws_cloudfront_response_headers_policy" "images_cache_headers" {
 }
 
 resource "aws_cloudfront_response_headers_policy" "css_cache_headers" {
+  count = var.private_static_cache_immutable_assets ? 0 : 1
+
   name = "${local.resource_name_prefix}css-cache-headers"
 
   custom_headers_config {
@@ -95,6 +111,8 @@ resource "aws_cloudfront_response_headers_policy" "css_cache_headers" {
 }
 
 resource "aws_cloudfront_cache_policy" "immutable_assets" {
+  count = var.private_static_cache_immutable_assets ? 0 : 1
+
   name        = "${local.resource_name_prefix}immutable-assets"
   default_ttl = 31536000
   max_ttl     = 31536000
@@ -141,6 +159,17 @@ resource "aws_cloudfront_response_headers_policy" "static_security" {
 
   name = "${local.resource_name_prefix}static-security"
 
+  dynamic "custom_headers_config" {
+    for_each = var.no_index ? [1] : []
+    content {
+      items {
+        header   = "X-Robots-Tag"
+        value    = "noindex, nofollow, noarchive"
+        override = true
+      }
+    }
+  }
+
   security_headers_config {
     content_security_policy {
       content_security_policy = var.security_headers_content_security_policy
@@ -168,6 +197,17 @@ resource "aws_cloudfront_response_headers_policy" "static_security" {
 }
 
 resource "aws_cloudfront_distribution" "main" {
+  lifecycle {
+    precondition {
+      condition = !var.api_origin_lambda_oac || (
+        local.api_origin_enabled && var.security_headers_policy &&
+        var.directory_routing_function_code != "" &&
+        var.api_cache_policy_id == "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+      )
+      error_message = "Lambda OAC requires an API origin, private static behavior, a viewer function that rewrites the bucket root, and the managed CachingDisabled API policy."
+    }
+  }
+
   enabled             = true
   is_ipv6_enabled     = var.is_ipv6_enabled
   price_class         = var.price_class
@@ -184,8 +224,9 @@ resource "aws_cloudfront_distribution" "main" {
   dynamic "origin" {
     for_each = local.api_origin_enabled ? [1] : []
     content {
-      domain_name = var.api_origin_domain_name
-      origin_id   = "api-origin"
+      domain_name              = var.api_origin_domain_name
+      origin_id                = "api-origin"
+      origin_access_control_id = local.api_lambda_oac_enabled ? aws_cloudfront_origin_access_control.lambda_oac[0].id : null
 
       custom_origin_config {
         http_port              = 80
@@ -225,14 +266,15 @@ resource "aws_cloudfront_distribution" "main" {
   dynamic "ordered_cache_behavior" {
     for_each = local.api_origin_enabled ? toset(var.api_path_patterns) : []
     content {
-      path_pattern             = ordered_cache_behavior.value
-      target_origin_id         = "api-origin"
-      allowed_methods          = var.api_allowed_methods
-      cached_methods           = var.api_cached_methods
-      viewer_protocol_policy   = "redirect-to-https"
-      compress                 = true
-      cache_policy_id          = local.api_cache_policy_id
-      origin_request_policy_id = local.api_origin_request_policy_id
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "api-origin"
+      allowed_methods            = var.api_allowed_methods
+      cached_methods             = var.api_cached_methods
+      viewer_protocol_policy     = "redirect-to-https"
+      compress                   = true
+      cache_policy_id            = local.api_cache_policy_id
+      origin_request_policy_id   = local.api_origin_request_policy_id
+      response_headers_policy_id = var.no_index ? try(aws_cloudfront_response_headers_policy.static_security[0].id, null) : null
 
       function_association {
         event_type   = "viewer-request"
@@ -242,7 +284,7 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   dynamic "ordered_cache_behavior" {
-    for_each = var.security_headers_policy ? [] : ["*.css"]
+    for_each = var.security_headers_policy || var.private_static_cache_immutable_assets ? [] : ["*.css"]
     content {
       path_pattern               = ordered_cache_behavior.value
       target_origin_id           = "s3-website"
@@ -250,9 +292,9 @@ resource "aws_cloudfront_distribution" "main" {
       cached_methods             = ["GET", "HEAD", "OPTIONS"]
       viewer_protocol_policy     = "redirect-to-https"
       compress                   = true
-      cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets.id
+      cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets[0].id
       origin_request_policy_id   = var.origin_request_policy_id
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.css_cache_headers.id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.css_cache_headers[0].id
 
       function_association {
         event_type   = "viewer-request"
@@ -262,7 +304,7 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   dynamic "ordered_cache_behavior" {
-    for_each = var.security_headers_policy ? [] : ["_next/static/*"]
+    for_each = !var.security_headers_policy || var.private_static_cache_immutable_assets ? ["_next/static/*"] : []
     content {
       path_pattern               = ordered_cache_behavior.value
       target_origin_id           = "s3-website"
@@ -270,9 +312,9 @@ resource "aws_cloudfront_distribution" "main" {
       cached_methods             = ["GET", "HEAD", "OPTIONS"]
       viewer_protocol_policy     = "redirect-to-https"
       compress                   = true
-      cache_policy_id            = aws_cloudfront_cache_policy.immutable_assets.id
-      origin_request_policy_id   = var.origin_request_policy_id
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.immutable_cache_headers.id
+      cache_policy_id            = var.private_static_cache_immutable_assets ? var.default_cache_policy_id : aws_cloudfront_cache_policy.immutable_assets[0].id
+      origin_request_policy_id   = var.private_static_cache_immutable_assets ? null : var.origin_request_policy_id
+      response_headers_policy_id = var.private_static_cache_immutable_assets ? try(aws_cloudfront_response_headers_policy.static_security[0].id, null) : aws_cloudfront_response_headers_policy.immutable_cache_headers[0].id
 
       function_association {
         event_type   = "viewer-request"
@@ -282,27 +324,7 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   dynamic "ordered_cache_behavior" {
-    for_each = var.security_headers_policy ? [] : ["images/*"]
-    content {
-      path_pattern               = ordered_cache_behavior.value
-      target_origin_id           = "s3-website"
-      allowed_methods            = ["GET", "HEAD", "OPTIONS"]
-      cached_methods             = ["GET", "HEAD", "OPTIONS"]
-      viewer_protocol_policy     = "redirect-to-https"
-      compress                   = true
-      cache_policy_id            = var.default_cache_policy_id
-      origin_request_policy_id   = var.origin_request_policy_id
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.images_cache_headers.id
-
-      function_association {
-        event_type   = "viewer-request"
-        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
-      }
-    }
-  }
-
-  dynamic "ordered_cache_behavior" {
-    for_each = var.security_headers_policy ? [] : ["static/*"]
+    for_each = var.security_headers_policy || var.private_static_cache_immutable_assets ? [] : ["images/*"]
     content {
       path_pattern               = ordered_cache_behavior.value
       target_origin_id           = "s3-website"
@@ -312,7 +334,27 @@ resource "aws_cloudfront_distribution" "main" {
       compress                   = true
       cache_policy_id            = var.default_cache_policy_id
       origin_request_policy_id   = var.origin_request_policy_id
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.images_cache_headers.id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.images_cache_headers[0].id
+
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.redirect_www_to_apex.arn
+      }
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = var.security_headers_policy || var.private_static_cache_immutable_assets ? [] : ["static/*"]
+    content {
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "s3-website"
+      allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+      cached_methods             = ["GET", "HEAD", "OPTIONS"]
+      viewer_protocol_policy     = "redirect-to-https"
+      compress                   = true
+      cache_policy_id            = var.default_cache_policy_id
+      origin_request_policy_id   = var.origin_request_policy_id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.images_cache_headers[0].id
 
       function_association {
         event_type   = "viewer-request"
@@ -334,7 +376,7 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   dynamic "custom_error_response" {
-    for_each = var.strict_error_responses ? [403, 404] : []
+    for_each = var.strict_error_responses && !local.api_lambda_oac_enabled ? [403, 404] : []
     content {
       error_code         = custom_error_response.value
       response_code      = 404
@@ -343,7 +385,7 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   dynamic "custom_error_response" {
-    for_each = var.strict_error_responses ? [] : [403, 404]
+    for_each = var.strict_error_responses || local.api_lambda_oac_enabled ? [] : [403, 404]
     content {
       error_code         = custom_error_response.value
       response_code      = 200
@@ -359,8 +401,8 @@ resource "aws_s3_bucket_policy" "website" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
+    Statement = concat(
+      [{
         Effect    = "Allow"
         Principal = { Service = "cloudfront.amazonaws.com" }
         Action    = "s3:GetObject"
@@ -370,7 +412,40 @@ resource "aws_s3_bucket_policy" "website" {
             "AWS:SourceArn" = aws_cloudfront_distribution.main.arn
           }
         }
-      }
-    ]
+      }],
+      local.api_lambda_oac_enabled ? [{
+        # S3 returns 403 on missing keys without ListBucket. This profile's
+        # viewer must rewrite the bucket root and forward no query strings.
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:ListBucket"
+        Resource  = var.bucket_arn
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.main.arn
+          }
+        }
+      }] : []
+    )
   })
+}
+
+moved {
+  from = aws_cloudfront_response_headers_policy.immutable_cache_headers
+  to   = aws_cloudfront_response_headers_policy.immutable_cache_headers[0]
+}
+
+moved {
+  from = aws_cloudfront_response_headers_policy.images_cache_headers
+  to   = aws_cloudfront_response_headers_policy.images_cache_headers[0]
+}
+
+moved {
+  from = aws_cloudfront_response_headers_policy.css_cache_headers
+  to   = aws_cloudfront_response_headers_policy.css_cache_headers[0]
+}
+
+moved {
+  from = aws_cloudfront_cache_policy.immutable_assets
+  to   = aws_cloudfront_cache_policy.immutable_assets[0]
 }

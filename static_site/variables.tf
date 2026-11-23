@@ -184,3 +184,27 @@ variable "web_acl_id" {
   type        = string
   default     = null
 }
+
+variable "private_static_cache_immutable_assets" {
+  description = "With security headers enabled, use the managed cache policy on hashed Next.js assets and retain the security headers."
+  type        = bool
+  default     = false
+}
+
+variable "no_index" {
+  description = "Add an X-Robots-Tag response header to behaviors using the security headers policy."
+  type        = bool
+  default     = false
+}
+
+variable "api_origin_lambda_oac" {
+  description = "Sign API origin requests with Lambda OAC and preserve origin error bodies and status. Missing static objects return S3's native 404."
+  type        = bool
+  default     = false
+}
+
+variable "wait_for_deployment" {
+  description = "Wait for CloudFront distribution deployment before completing the apply."
+  type        = bool
+  default     = false
+}

@@ -42,11 +42,15 @@ module "static_site_cloudfront" {
   web_acl_id                               = var.web_acl_id
   resource_name_prefix                     = var.resource_name_prefix
   directory_routing_function_code          = var.directory_routing_function_code
+  private_static_cache_immutable_assets    = var.private_static_cache_immutable_assets
+  no_index                                 = var.no_index
+  wait_for_deployment                      = var.wait_for_deployment
   strict_error_responses                   = var.strict_error_responses
   security_headers_policy                  = var.security_headers_policy
   security_headers_frame_options           = var.security_headers_frame_options
   security_headers_content_security_policy = var.security_headers_content_security_policy
 
+  api_origin_lambda_oac          = var.api_origin_lambda_oac
   api_origin_domain_name         = var.api_origin_domain_name
   api_path_patterns              = var.api_path_patterns
   api_origin_custom_header_name  = var.api_origin_custom_header_name
