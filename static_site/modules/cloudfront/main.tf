@@ -9,6 +9,8 @@ resource "aws_cloudfront_origin_access_control" "website_oac" {
 locals {
   api_lambda_oac_enabled       = local.api_origin_enabled && var.api_origin_lambda_oac
   api_origin_enabled           = var.api_origin_domain_name != ""
+  preserve_forbidden           = var.preserve_forbidden_responses || local.api_lambda_oac_enabled
+  static_error_codes           = local.api_lambda_oac_enabled ? [] : (local.preserve_forbidden ? [404] : [403, 404])
   api_cache_policy_id          = var.api_cache_policy_id != "" ? var.api_cache_policy_id : try(aws_cloudfront_cache_policy.api[0].id, null)
   api_origin_request_policy_id = var.api_origin_request_policy_id != "" ? var.api_origin_request_policy_id : try(aws_cloudfront_origin_request_policy.api[0].id, null)
   resource_name_prefix         = var.resource_name_prefix != "" ? "${var.resource_name_prefix}-" : ""
@@ -199,6 +201,13 @@ resource "aws_cloudfront_response_headers_policy" "static_security" {
 resource "aws_cloudfront_distribution" "main" {
   lifecycle {
     precondition {
+      condition = !var.preserve_forbidden_responses || (
+        var.security_headers_policy && var.directory_routing_function_code != ""
+      )
+      error_message = "Preserving 403 responses requires private static behavior and a viewer function that rewrites the bucket root."
+    }
+
+    precondition {
       condition = !var.api_origin_lambda_oac || (
         local.api_origin_enabled && var.security_headers_policy &&
         var.directory_routing_function_code != "" &&
@@ -376,7 +385,7 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   dynamic "custom_error_response" {
-    for_each = var.strict_error_responses && !local.api_lambda_oac_enabled ? [403, 404] : []
+    for_each = var.strict_error_responses ? local.static_error_codes : []
     content {
       error_code         = custom_error_response.value
       response_code      = 404
@@ -385,7 +394,7 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   dynamic "custom_error_response" {
-    for_each = var.strict_error_responses || local.api_lambda_oac_enabled ? [] : [403, 404]
+    for_each = var.strict_error_responses ? [] : local.static_error_codes
     content {
       error_code         = custom_error_response.value
       response_code      = 200
@@ -413,7 +422,7 @@ resource "aws_s3_bucket_policy" "website" {
           }
         }
       }],
-      local.api_lambda_oac_enabled ? [{
+      local.preserve_forbidden ? [{
         # S3 returns 403 on missing keys without ListBucket. This profile's
         # viewer must rewrite the bucket root and forward no query strings.
         Effect    = "Allow"

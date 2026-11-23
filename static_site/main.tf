@@ -46,6 +46,7 @@ module "static_site_cloudfront" {
   no_index                                 = var.no_index
   wait_for_deployment                      = var.wait_for_deployment
   strict_error_responses                   = var.strict_error_responses
+  preserve_forbidden_responses             = var.preserve_forbidden_responses
   security_headers_policy                  = var.security_headers_policy
   security_headers_frame_options           = var.security_headers_frame_options
   security_headers_content_security_policy = var.security_headers_content_security_policy

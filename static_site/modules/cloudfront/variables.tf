@@ -89,6 +89,12 @@ variable "strict_error_responses" {
   default     = false
 }
 
+variable "preserve_forbidden_responses" {
+  description = "Pass through CloudFront and WAF 403 responses. Requires private static behavior and a viewer function that rewrites the bucket root."
+  type        = bool
+  default     = false
+}
+
 variable "security_headers_policy" {
   description = "Whether to attach restrictive static-site response headers."
   type        = bool
