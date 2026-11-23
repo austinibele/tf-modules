@@ -89,6 +89,12 @@ variable "strict_error_responses" {
   default     = false
 }
 
+variable "preserve_forbidden_responses" {
+  description = "Pass through CloudFront and WAF 403 responses. Requires private static behavior and a viewer function that rewrites the bucket root."
+  type        = bool
+  default     = false
+}
+
 variable "security_headers_policy" {
   description = "Whether to attach restrictive static-site response headers."
   type        = bool
@@ -199,4 +205,22 @@ variable "api_origin_request_policy_id" {
   description = "Optional origin request policy ID to use for API behaviors."
   type        = string
   default     = ""
+}
+
+variable "private_static_cache_immutable_assets" {
+  description = "With security headers enabled, use the managed cache policy on hashed Next.js assets and retain the security headers."
+  type        = bool
+  default     = false
+}
+
+variable "no_index" {
+  description = "Add an X-Robots-Tag response header to behaviors using the security headers policy."
+  type        = bool
+  default     = false
+}
+
+variable "api_origin_lambda_oac" {
+  description = "Sign API origin requests with Lambda OAC and preserve origin error bodies and status. Missing static objects return S3's native 404."
+  type        = bool
+  default     = false
 }

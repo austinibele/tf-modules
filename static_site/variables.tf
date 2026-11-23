@@ -80,6 +80,12 @@ variable "strict_error_responses" {
   default     = false
 }
 
+variable "preserve_forbidden_responses" {
+  description = "Pass through CloudFront and WAF 403 responses. Requires private static behavior and a viewer function that rewrites the bucket root."
+  type        = bool
+  default     = false
+}
+
 variable "security_headers_policy" {
   description = "Whether to attach restrictive static-site response headers."
   type        = bool
@@ -183,4 +189,44 @@ variable "web_acl_id" {
   description = "Optional WAFv2 web ACL ARN (CLOUDFRONT scope). Null leaves the distribution unprotected."
   type        = string
   default     = null
+}
+
+variable "private_static_cache_immutable_assets" {
+  description = "With security headers enabled, use the managed cache policy on hashed Next.js assets and retain the security headers."
+  type        = bool
+  default     = false
+}
+
+variable "no_index" {
+  description = "Add an X-Robots-Tag response header to behaviors using the security headers policy."
+  type        = bool
+  default     = false
+}
+
+variable "api_origin_lambda_oac" {
+  description = "Sign API origin requests with Lambda OAC and preserve origin error bodies and status. Missing static objects return S3's native 404."
+  type        = bool
+  default     = false
+}
+
+variable "wait_for_deployment" {
+  description = "Wait for CloudFront distribution deployment before completing the apply."
+  type        = bool
+  default     = false
+}
+
+variable "distribution_certificate_arn" {
+  description = "Optional externally validated ACM certificate ARN for the distribution. The regular site certificate and validation records remain managed independently."
+  type        = string
+  default     = ""
+}
+
+variable "supplemental_distribution_aliases" {
+  description = "Optional aliases whose certificate validation and traffic records are owned outside the module. Requires distribution_certificate_arn."
+  type        = list(string)
+  default     = []
+  validation {
+    condition     = length(var.supplemental_distribution_aliases) == 0 || var.distribution_certificate_arn != ""
+    error_message = "Provide an externally validated distribution certificate covering all supplemental aliases."
+  }
 }
