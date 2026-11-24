@@ -78,6 +78,7 @@ module "static_site_route53" {
   distribution_domain_name              = module.static_site_cloudfront.distribution_domain_name
   distribution_hosted_zone_id           = module.static_site_cloudfront.distribution_hosted_zone_id
   certificate_arn                       = module.static_site_certificate.certificate_arn
+  certificate_domain_names              = concat([var.domain], local.san_names)
   certificate_domain_validation_options = module.static_site_certificate.domain_validation_options
   additional_records                    = var.route53_additional_records
 }
