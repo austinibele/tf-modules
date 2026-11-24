@@ -36,6 +36,11 @@ variable "certificate_arn" {
   type        = string
 }
 
+variable "certificate_domain_names" {
+  description = "Every domain name on the certificate (primary and alternative names). Keys the validation records, so it must be known at plan time."
+  type        = list(string)
+}
+
 variable "certificate_domain_validation_options" {
   description = "Domain validation options returned by the ACM certificate."
   type = list(object({

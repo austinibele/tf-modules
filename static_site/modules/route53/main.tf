@@ -9,20 +9,23 @@ locals {
   zone_id = var.existing_zone_id != "" ? var.existing_zone_id : aws_route53_zone.primary[0].zone_id
 }
 
-resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in var.certificate_domain_validation_options : dvo.domain_name => {
-      name  = dvo.resource_record_name
-      value = dvo.resource_record_value
-      type  = dvo.resource_record_type
-    }
+locals {
+  # Keyed by the certificate's domain names, which are known at plan time.
+  # The validation options themselves are known only after a new certificate
+  # is created, so they can supply values but not for_each keys.
+  validation_by_domain = {
+    for dvo in var.certificate_domain_validation_options : dvo.domain_name => dvo
   }
+}
+
+resource "aws_route53_record" "cert_validation" {
+  for_each = toset(var.certificate_domain_names)
 
   allow_overwrite = true
-  name            = each.value.name
-  records         = [each.value.value]
+  name            = local.validation_by_domain[each.key].resource_record_name
+  records         = [local.validation_by_domain[each.key].resource_record_value]
   ttl             = 60
-  type            = each.value.type
+  type            = local.validation_by_domain[each.key].resource_record_type
   zone_id         = local.zone_id
 }
 
